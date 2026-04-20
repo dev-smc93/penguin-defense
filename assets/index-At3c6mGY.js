@@ -21390,94 +21390,144 @@ var MonsterEntity = class {
 		this.slowTimer = 0;
 		this.slowFactor = 1;
 		this.alive = true;
+		this.leftArm = null;
+		this.rightArm = null;
+		this.leftLeg = null;
+		this.rightLeg = null;
+		this.baseArmLZ = 0;
+		this.baseArmRZ = 0;
 		this.type = type;
 		this.stats = ENEMY_DATA[type];
 		this.hp = this.stats.hp;
 		this.maxHp = this.stats.hp;
 		this.speed = this.stats.speed;
+		this.animPhase = Math.random() * Math.PI * 2;
 		this.group = new Group();
 		this.group.position.copy(path[0]);
+		this.bodyGroup = new Group();
+		this.group.add(this.bodyGroup);
 		this.buildMesh();
-		this.hpBarBg = new Mesh(new PlaneGeometry(6, .8), new MeshBasicMaterial({ color: 3355443 }));
-		this.hpBarBg.position.y = this.stats.size * .15 + 5;
-		this.hpBarBg.rotation.x = -.8;
-		this.group.add(this.hpBarBg);
-		this.hpBar = new Mesh(new PlaneGeometry(6, .8), new MeshBasicMaterial({ color: 5025616 }));
-		this.hpBar.position.y = this.stats.size * .15 + 5.01;
-		this.hpBar.rotation.x = -.8;
-		this.group.add(this.hpBar);
+		const lightColor = type === "boss" ? 16729156 : type === "dragon" ? 11766015 : type === "troll" ? 16766287 : type === "orc" ? 6600182 : 8505220;
+		this.selfLight = new PointLight(lightColor, .8, 25);
+		const s = this.stats.size * .3;
+		this.selfLight.position.y = s * 1.5;
+		this.group.add(this.selfLight);
+		const shadowDisc = new Mesh(new CircleGeometry(s * 1.2, 12), new MeshBasicMaterial({
+			color: 0,
+			transparent: true,
+			opacity: .3
+		}));
+		shadowDisc.rotation.x = -Math.PI / 2;
+		shadowDisc.position.y = .15;
+		this.group.add(shadowDisc);
+		const barW = 8;
+		const barH = 1.4;
+		const barY = s * 3.2 + 3;
+		this.hpBarGroup = new Group();
+		this.hpBarGroup.position.y = barY;
+		const border = new Mesh(new PlaneGeometry(barW + 1, barH + .6), new MeshBasicMaterial({
+			color: 0,
+			transparent: true,
+			opacity: .8
+		}));
+		border.position.z = -.02;
+		this.hpBarGroup.add(border);
+		this.hpBarBg = new Mesh(new PlaneGeometry(barW, barH), new MeshBasicMaterial({ color: 1710618 }));
+		this.hpBarBg.position.z = -.01;
+		this.hpBarGroup.add(this.hpBarBg);
+		this.hpBar = new Mesh(new PlaneGeometry(barW, barH), new MeshBasicMaterial({ color: 5025616 }));
+		this.hpBarGroup.add(this.hpBar);
+		this.group.add(this.hpBarGroup);
 		scene.add(this.group);
 	}
 	buildMesh() {
-		const s = this.stats.size * .15;
-		this.stats.color;
+		const s = this.stats.size * .3;
 		if (this.type === "goblin") {
 			const skinMat = new MeshStandardMaterial({
 				color: 5025616,
-				roughness: .7
+				emissive: 3046706,
+				emissiveIntensity: .25,
+				roughness: .6
 			});
 			const body = new Mesh(new SphereGeometry(s * .8, 10, 8), skinMat);
-			body.position.y = s * .9 + .5;
+			body.position.y = s * .9;
 			body.scale.y = 1.1;
 			body.castShadow = true;
-			this.group.add(body);
+			this.bodyGroup.add(body);
 			const head = new Mesh(new SphereGeometry(s * .55, 10, 8), skinMat);
-			head.position.y = s * 1.8 + .5;
-			this.group.add(head);
-			const earMat = new MeshStandardMaterial({ color: 3706428 });
+			head.position.y = s * 1.8;
+			this.bodyGroup.add(head);
+			const earMat = new MeshStandardMaterial({
+				color: 3706428,
+				emissive: 1793568,
+				emissiveIntensity: .15
+			});
 			for (const side of [-1, 1]) {
 				const ear = new Mesh(new ConeGeometry(s * .15, s * .5, 4), earMat);
-				ear.position.set(side * s * .5, s * 2 + .5, 0);
+				ear.position.set(side * s * .5, s * 2, 0);
 				ear.rotation.z = side * .5;
-				this.group.add(ear);
-			}
-			const eyeMat = new MeshBasicMaterial({ color: 16771899 });
-			for (const side of [-1, 1]) {
-				const eye = new Mesh(new SphereGeometry(s * .12, 6, 6), eyeMat);
-				eye.position.set(side * s * .2, s * 1.9 + .5, s * .45);
-				this.group.add(eye);
+				this.bodyGroup.add(ear);
 			}
 			for (const side of [-1, 1]) {
-				const arm = new Mesh(new CylinderGeometry(s * .1, s * .08, s * .8, 5), skinMat);
-				arm.position.set(side * s * .7, s * .8 + .5, 0);
-				arm.rotation.z = side * .4;
-				this.group.add(arm);
+				const eye = new Mesh(new SphereGeometry(s * .14, 6, 6), new MeshBasicMaterial({ color: 16771899 }));
+				eye.position.set(side * s * .22, s * 1.9, s * .45);
+				this.bodyGroup.add(eye);
+				const pupil = new Mesh(new SphereGeometry(s * .07, 4, 4), new MeshBasicMaterial({ color: 0 }));
+				pupil.position.set(side * s * .22, s * 1.9, s * .55);
+				this.bodyGroup.add(pupil);
 			}
-			for (const side of [-1, 1]) {
-				const leg = new Mesh(new CylinderGeometry(s * .12, s * .1, s * .5, 5), skinMat);
-				leg.position.set(side * s * .25, s * .25 + .5, 0);
-				this.group.add(leg);
-			}
+			const lArm = new Mesh(new CylinderGeometry(s * .1, s * .08, s * .8, 5), skinMat);
+			lArm.position.set(-s * .7, s * .8, 0);
+			this.baseArmLZ = -.4;
+			lArm.rotation.z = this.baseArmLZ;
+			this.bodyGroup.add(lArm);
+			this.leftArm = lArm;
+			const rArm = new Mesh(new CylinderGeometry(s * .1, s * .08, s * .8, 5), skinMat);
+			rArm.position.set(s * .7, s * .8, 0);
+			this.baseArmRZ = .4;
+			rArm.rotation.z = this.baseArmRZ;
+			this.bodyGroup.add(rArm);
+			this.rightArm = rArm;
+			const lLeg = new Mesh(new CylinderGeometry(s * .12, s * .1, s * .5, 5), skinMat);
+			lLeg.position.set(-s * .25, s * .25, 0);
+			this.bodyGroup.add(lLeg);
+			this.leftLeg = lLeg;
+			const rLeg = new Mesh(new CylinderGeometry(s * .12, s * .1, s * .5, 5), skinMat);
+			rLeg.position.set(s * .25, s * .25, 0);
+			this.bodyGroup.add(rLeg);
+			this.rightLeg = rLeg;
 		} else if (this.type === "orc") {
 			const skinMat = new MeshStandardMaterial({
 				color: 4878245,
+				emissive: 1722272,
+				emissiveIntensity: .25,
 				roughness: .5,
 				metalness: .2
 			});
 			const torso = new Mesh(new SphereGeometry(s * .9, 10, 8), skinMat);
-			torso.position.y = s + .5;
+			torso.position.y = s;
 			torso.scale.set(1, 1.1, .85);
 			torso.castShadow = true;
-			this.group.add(torso);
+			this.bodyGroup.add(torso);
 			const head = new Mesh(new SphereGeometry(s * .5, 10, 8), skinMat);
-			head.position.y = s * 1.9 + .5;
-			this.group.add(head);
+			head.position.y = s * 1.9;
+			this.bodyGroup.add(head);
 			const hornMat = new MeshStandardMaterial({
 				color: 9489145,
 				emissive: 4367861,
-				emissiveIntensity: .2,
+				emissiveIntensity: .35,
 				roughness: .3
 			});
 			for (const side of [-1, 1]) {
 				const horn = new Mesh(new ConeGeometry(s * .12, s * .7, 5), hornMat);
-				horn.position.set(side * s * .35, s * 2.3 + .5, -s * .1);
+				horn.position.set(side * s * .35, s * 2.3, -s * .1);
 				horn.rotation.z = side * .3;
-				this.group.add(horn);
+				this.bodyGroup.add(horn);
 			}
 			for (const side of [-1, 1]) {
-				const eye = new Mesh(new SphereGeometry(s * .1, 6, 6), new MeshBasicMaterial({ color: 16717636 }));
-				eye.position.set(side * s * .2, s * 2 + .5, s * .4);
-				this.group.add(eye);
+				const eye = new Mesh(new SphereGeometry(s * .12, 6, 6), new MeshBasicMaterial({ color: 16717636 }));
+				eye.position.set(side * s * .2, s * 2, s * .4);
+				this.bodyGroup.add(eye);
 			}
 			const armorMat = new MeshStandardMaterial({
 				color: 5533306,
@@ -21485,200 +21535,242 @@ var MonsterEntity = class {
 				roughness: .2
 			});
 			const chest = new Mesh(new BoxGeometry(s * 1.2, s * .7, s * .3), armorMat);
-			chest.position.set(0, s + .5, s * .6);
-			this.group.add(chest);
+			chest.position.set(0, s, s * .6);
+			this.bodyGroup.add(chest);
 			for (const side of [-1, 1]) {
 				const pad = new Mesh(new SphereGeometry(s * .3, 6, 6), armorMat);
-				pad.position.set(side * s * .9, s * 1.4 + .5, 0);
+				pad.position.set(side * s * .9, s * 1.4, 0);
 				pad.scale.y = .6;
-				this.group.add(pad);
+				this.bodyGroup.add(pad);
 			}
-			for (const side of [-1, 1]) {
-				const arm = new Mesh(new CylinderGeometry(s * .12, s * .1, s, 5), skinMat);
-				arm.position.set(side * s * .85, s * .7 + .5, 0);
-				arm.rotation.z = side * .2;
-				this.group.add(arm);
-			}
+			const lArm = new Mesh(new CylinderGeometry(s * .12, s * .1, s, 5), skinMat);
+			lArm.position.set(-s * .85, s * .7, 0);
+			this.baseArmLZ = -.2;
+			lArm.rotation.z = this.baseArmLZ;
+			this.bodyGroup.add(lArm);
+			this.leftArm = lArm;
+			const rArm = new Mesh(new CylinderGeometry(s * .12, s * .1, s, 5), skinMat);
+			rArm.position.set(s * .85, s * .7, 0);
+			this.baseArmRZ = .2;
+			rArm.rotation.z = this.baseArmRZ;
+			this.bodyGroup.add(rArm);
+			this.rightArm = rArm;
 		} else if (this.type === "troll") {
 			const wrapMat = new MeshStandardMaterial({
 				color: 9268835,
+				emissive: 5125166,
+				emissiveIntensity: .2,
 				roughness: .8
 			});
 			const bandageMat = new MeshStandardMaterial({
 				color: 14142664,
+				emissive: 10586239,
+				emissiveIntensity: .15,
 				roughness: .9
 			});
 			const body = new Mesh(new CylinderGeometry(s * .7, s * .8, s * 1.8, 8), wrapMat);
-			body.position.y = s * .9 + .5;
+			body.position.y = s * .9;
 			body.castShadow = true;
-			this.group.add(body);
+			this.bodyGroup.add(body);
 			const head = new Mesh(new SphereGeometry(s * .55, 8, 8), wrapMat);
-			head.position.y = s * 2 + .5;
-			this.group.add(head);
+			head.position.y = s * 2;
+			this.bodyGroup.add(head);
 			for (let i = 0; i < 5; i++) {
-				const wrap = new Mesh(new TorusGeometry(s * (.75 - i * .03), .12, 4, 12), bandageMat);
-				wrap.position.y = s * .3 + i * s * .35 + .5;
+				const wrap = new Mesh(new TorusGeometry(s * (.75 - i * .03), .15, 4, 12), bandageMat);
+				wrap.position.y = s * .3 + i * s * .35;
 				wrap.rotation.x = Math.PI / 2;
 				wrap.rotation.y = i * .3;
-				this.group.add(wrap);
+				this.bodyGroup.add(wrap);
 			}
 			for (const side of [-1, 1]) {
-				const eye = new Mesh(new SphereGeometry(s * .12, 6, 6), new MeshBasicMaterial({ color: 16766287 }));
-				eye.position.set(side * s * .2, s * 2.1 + .5, s * .45);
-				this.group.add(eye);
+				const eye = new Mesh(new SphereGeometry(s * .14, 6, 6), new MeshBasicMaterial({ color: 16766287 }));
+				eye.position.set(side * s * .2, s * 2.1, s * .45);
+				this.bodyGroup.add(eye);
 			}
+			const lArm = new Mesh(new CylinderGeometry(s * .15, s * .12, s * 1.2, 5), wrapMat);
+			lArm.position.set(-s * .85, s * .8, 0);
+			this.baseArmLZ = -.3;
+			lArm.rotation.z = this.baseArmLZ;
+			this.bodyGroup.add(lArm);
+			this.leftArm = lArm;
+			const rArm = new Mesh(new CylinderGeometry(s * .15, s * .12, s * 1.2, 5), wrapMat);
+			rArm.position.set(s * .85, s * .8, 0);
+			this.baseArmRZ = .3;
+			rArm.rotation.z = this.baseArmRZ;
+			this.bodyGroup.add(rArm);
+			this.rightArm = rArm;
 			for (const side of [-1, 1]) {
-				const arm = new Mesh(new CylinderGeometry(s * .15, s * .12, s * 1.2, 5), wrapMat);
-				arm.position.set(side * s * .85, s * .8 + .5, 0);
-				arm.rotation.z = side * .3;
-				this.group.add(arm);
 				const fist = new Mesh(new SphereGeometry(s * .25, 6, 6), wrapMat);
-				fist.position.set(side * s * 1.1, s * .2 + .5, 0);
-				this.group.add(fist);
+				fist.position.set(side * s * 1.1, s * .2, 0);
+				this.bodyGroup.add(fist);
 			}
 		} else if (this.type === "dragon") {
 			const ghostMat = new MeshStandardMaterial({
 				color: 15264502,
 				emissive: 9795021,
-				emissiveIntensity: .5,
+				emissiveIntensity: .6,
 				transparent: true,
-				opacity: .5,
+				opacity: .55,
 				roughness: .3,
 				side: 2
 			});
 			const bodyTop = new Mesh(new SphereGeometry(s * .8, 12, 8), ghostMat);
-			bodyTop.position.y = s * 1.5 + .5;
+			bodyTop.position.y = s * 1.5;
 			bodyTop.castShadow = true;
-			this.group.add(bodyTop);
+			this.bodyGroup.add(bodyTop);
 			const tail = new Mesh(new ConeGeometry(s * .85, s * 1.5, 8), ghostMat.clone());
-			tail.position.y = s * .5 + .5;
+			tail.position.y = s * .5;
 			tail.rotation.x = Math.PI;
-			this.group.add(tail);
-			const faceMat = new MeshBasicMaterial({
+			this.bodyGroup.add(tail);
+			const mouth = new Mesh(new CircleGeometry(s * .3, 8), new MeshBasicMaterial({
 				color: 1710638,
 				transparent: true,
-				opacity: .8
-			});
-			const mouth = new Mesh(new CircleGeometry(s * .25, 8), faceMat);
-			mouth.position.set(0, s * 1.3 + .5, s * .7);
-			this.group.add(mouth);
+				opacity: .9
+			}));
+			mouth.position.set(0, s * 1.3, s * .72);
+			this.bodyGroup.add(mouth);
 			for (const side of [-1, 1]) {
-				const eye = new Mesh(new SphereGeometry(s * .15, 6, 6), new MeshBasicMaterial({ color: 0 }));
-				eye.position.set(side * s * .3, s * 1.7 + .5, s * .65);
-				this.group.add(eye);
+				const eye = new Mesh(new SphereGeometry(s * .18, 6, 6), new MeshBasicMaterial({ color: 0 }));
+				eye.position.set(side * s * .3, s * 1.7, s * .65);
+				this.bodyGroup.add(eye);
 			}
-			const glowMat = new MeshBasicMaterial({
+			const glow = new Mesh(new SphereGeometry(s * 1.1, 8, 8), new MeshBasicMaterial({
 				color: 8146431,
 				transparent: true,
-				opacity: .15
-			});
-			const glow = new Mesh(new SphereGeometry(s * 1.1, 8, 8), glowMat);
-			glow.position.y = s * 1.2 + .5;
-			this.group.add(glow);
+				opacity: .12
+			}));
+			glow.position.y = s * 1.2;
+			this.bodyGroup.add(glow);
 			for (let i = 0; i < 3; i++) {
 				const a = i / 3 * Math.PI * 2;
-				const wisp = new Mesh(new CylinderGeometry(.1, s * .15, s * .8, 4), new MeshBasicMaterial({
+				const wisp = new Mesh(new CylinderGeometry(.15, s * .18, s * 1, 4), new MeshBasicMaterial({
 					color: 11771355,
 					transparent: true,
-					opacity: .3
+					opacity: .35
 				}));
-				wisp.position.set(Math.cos(a) * s * .5, s * .1 + .5, Math.sin(a) * s * .5);
-				wisp.rotation.z = (Math.random() - .5) * .5;
-				this.group.add(wisp);
+				wisp.position.set(Math.cos(a) * s * .5, s * .1, Math.sin(a) * s * .5);
+				wisp.rotation.z = (Math.random() - .5) * .4;
+				this.bodyGroup.add(wisp);
 			}
 		} else if (this.type === "boss") {
 			const darkMat = new MeshStandardMaterial({
 				color: 2886154,
-				emissive: 9109504,
-				emissiveIntensity: .4,
+				emissive: 12000284,
+				emissiveIntensity: .45,
 				roughness: .5,
 				metalness: .3
 			});
 			const body = new Mesh(new SphereGeometry(s, 12, 10), darkMat);
-			body.position.y = s + .5;
+			body.position.y = s;
 			body.scale.set(1, 1.15, .9);
 			body.castShadow = true;
-			this.group.add(body);
+			this.bodyGroup.add(body);
 			const head = new Mesh(new SphereGeometry(s * .6, 10, 8), darkMat);
-			head.position.y = s * 2.1 + .5;
-			this.group.add(head);
+			head.position.y = s * 2.1;
+			this.bodyGroup.add(head);
 			const crownMat = new MeshStandardMaterial({
 				color: 16766720,
 				emissive: 16752640,
-				emissiveIntensity: .6,
+				emissiveIntensity: .7,
 				metalness: .9,
 				roughness: .1
 			});
 			const crown = new Mesh(new CylinderGeometry(s * .35, s * .5, s * .5, 6), crownMat);
-			crown.position.y = s * 2.7 + .5;
-			this.group.add(crown);
+			crown.position.y = s * 2.7;
+			this.bodyGroup.add(crown);
 			for (let i = 0; i < 5; i++) {
 				const a = i / 5 * Math.PI * 2;
-				const spike = new Mesh(new ConeGeometry(s * .08, s * .35, 4), crownMat);
-				spike.position.set(Math.cos(a) * s * .35, s * 3 + .5, Math.sin(a) * s * .35);
-				this.group.add(spike);
+				const spike = new Mesh(new ConeGeometry(s * .1, s * .4, 4), crownMat);
+				spike.position.set(Math.cos(a) * s * .35, s * 3, Math.sin(a) * s * .35);
+				this.bodyGroup.add(spike);
 			}
 			for (const side of [-1, 1]) {
-				const eye = new Mesh(new SphereGeometry(s * .15, 6, 6), new MeshBasicMaterial({ color: 16717636 }));
-				eye.position.set(side * s * .25, s * 2.2 + .5, s * .5);
-				this.group.add(eye);
-				const eyeGlow = new Mesh(new SphereGeometry(s * .25, 6, 6), new MeshBasicMaterial({
+				const eye = new Mesh(new SphereGeometry(s * .18, 6, 6), new MeshBasicMaterial({ color: 16717636 }));
+				eye.position.set(side * s * .25, s * 2.2, s * .5);
+				this.bodyGroup.add(eye);
+				const eyeGlow = new Mesh(new SphereGeometry(s * .3, 6, 6), new MeshBasicMaterial({
 					color: 16711680,
 					transparent: true,
-					opacity: .2
+					opacity: .25
 				}));
 				eyeGlow.position.copy(eye.position);
-				this.group.add(eyeGlow);
+				this.bodyGroup.add(eyeGlow);
 			}
-			const capeMat = new MeshStandardMaterial({
+			const cape = new Mesh(new PlaneGeometry(s * 2, s * 2.5), new MeshStandardMaterial({
 				color: 4849664,
 				emissive: 3342336,
 				emissiveIntensity: .2,
 				side: 2
-			});
-			const cape = new Mesh(new PlaneGeometry(s * 2, s * 2.5), capeMat);
-			cape.position.set(0, s * 1.2 + .5, -s * .6);
+			}));
+			cape.position.set(0, s * 1.2, -s * .6);
 			cape.rotation.x = .15;
-			this.group.add(cape);
+			this.bodyGroup.add(cape);
+			const lArm = new Mesh(new CylinderGeometry(s * .2, s * .15, s * 1.4, 6), darkMat);
+			lArm.position.set(-s * 1, s * .8, 0);
+			this.baseArmLZ = -.3;
+			lArm.rotation.z = this.baseArmLZ;
+			lArm.castShadow = true;
+			this.bodyGroup.add(lArm);
+			this.leftArm = lArm;
+			const rArm = new Mesh(new CylinderGeometry(s * .2, s * .15, s * 1.4, 6), darkMat);
+			rArm.position.set(s * 1, s * .8, 0);
+			this.baseArmRZ = .3;
+			rArm.rotation.z = this.baseArmRZ;
+			rArm.castShadow = true;
+			this.bodyGroup.add(rArm);
+			this.rightArm = rArm;
 			for (const side of [-1, 1]) {
-				const arm = new Mesh(new CylinderGeometry(s * .2, s * .15, s * 1.4, 6), darkMat);
-				arm.position.set(side * s * 1, s * .8 + .5, 0);
-				arm.rotation.z = side * .3;
-				arm.castShadow = true;
-				this.group.add(arm);
 				const claw = new Mesh(new ConeGeometry(s * .2, s * .4, 4), new MeshStandardMaterial({
 					color: 1703936,
+					emissive: 3342336,
+					emissiveIntensity: .2,
 					roughness: .4
 				}));
-				claw.position.set(side * s * 1.2, s * .1 + .5, 0);
+				claw.position.set(side * s * 1.2, s * .1, 0);
 				claw.rotation.x = Math.PI;
-				this.group.add(claw);
+				this.bodyGroup.add(claw);
 			}
-			const auraMat = new MeshBasicMaterial({
+			const aura = new Mesh(new SphereGeometry(s * 1.6, 12, 12), new MeshBasicMaterial({
 				color: 16711680,
 				transparent: true,
-				opacity: .08
-			});
-			const aura = new Mesh(new SphereGeometry(s * 1.6, 12, 12), auraMat);
-			aura.position.y = s + .5;
-			this.group.add(aura);
+				opacity: .1
+			}));
+			aura.position.y = s;
+			this.bodyGroup.add(aura);
 		}
 	}
 	update(delta, path, pathLength) {
 		if (this.hp <= 0) return false;
 		if (this.slowTimer > 0) this.slowTimer -= delta;
 		else this.slowFactor = 1;
-		const speed = this.speed * this.slowFactor * (delta / 1e3);
-		this.distanceTraveled += speed;
+		const moveSpeed = this.speed * this.slowFactor * (delta / 1e3);
+		this.distanceTraveled += moveSpeed;
 		if (this.distanceTraveled >= pathLength) return true;
 		const { pos, dir } = getPositionOnPath(path, this.distanceTraveled);
 		this.group.position.copy(pos);
-		if (this.type === "dragon") this.group.position.y += 4;
+		if (this.type === "dragon") this.group.position.y += 6;
 		this.group.lookAt(pos.clone().add(dir));
+		this.animPhase += delta * .008 * this.speed * this.slowFactor * .02;
+		if (this.type === "dragon") {
+			this.bodyGroup.position.y = Math.sin(this.animPhase * 2) * 1.2;
+			this.bodyGroup.rotation.z = Math.sin(this.animPhase * 1.5) * .08;
+			this.bodyGroup.rotation.x = Math.sin(this.animPhase) * .05;
+		} else {
+			this.bodyGroup.position.y = Math.abs(Math.sin(this.animPhase * 3)) * .6;
+			if (this.leftArm) this.leftArm.rotation.x = Math.sin(this.animPhase * 3) * .5;
+			if (this.rightArm) this.rightArm.rotation.x = -Math.sin(this.animPhase * 3) * .5;
+			if (this.leftLeg) this.leftLeg.rotation.x = -Math.sin(this.animPhase * 3) * .4;
+			if (this.rightLeg) this.rightLeg.rotation.x = Math.sin(this.animPhase * 3) * .4;
+			if (this.type === "boss") this.bodyGroup.rotation.z = Math.sin(this.animPhase * 1.5) * .06;
+		}
+		this.hpBarGroup.rotation.set(0, 0, 0);
+		this.hpBarGroup.rotation.y = -this.group.rotation.y;
+		this.hpBarGroup.rotation.x = -.6;
 		const hpRatio = Math.max(0, this.hp / this.maxHp);
 		this.hpBar.scale.x = hpRatio;
-		this.hpBar.position.x = -3 * (1 - hpRatio);
-		this.hpBar.material.color.set(hpRatio > .5 ? 5025616 : hpRatio > .25 ? 16761095 : 16007990);
+		this.hpBar.position.x = -4 * (1 - hpRatio);
+		const barColor = hpRatio > .5 ? 5025616 : hpRatio > .25 ? 16761095 : 16007990;
+		this.hpBar.material.color.set(barColor);
 		return false;
 	}
 	takeDamage(amount, slow) {
@@ -21696,6 +21788,7 @@ var MonsterEntity = class {
 				c.geometry.dispose();
 				c.material.dispose();
 			}
+			if (c instanceof PointLight) c.dispose();
 		});
 	}
 };
@@ -21813,10 +21906,10 @@ var Game = class {
 		this.renderer.domElement.style.display = "block";
 		this.scene = new Scene();
 		this.scene.background = new Color(661032);
-		this.scene.fog = new FogExp2(661032, .0015);
+		this.scene.fog = new FogExp2(661032, .001);
 		this.camera = new PerspectiveCamera(50, 390 / 780, 1, 800);
-		this.camera.position.set(0, 280, 170);
-		this.camera.lookAt(0, 0, 0);
+		this.camera.position.set(0, 220, 160);
+		this.camera.lookAt(0, 0, 10);
 		this.ui = new UI(container, this);
 		this.resize();
 		window.addEventListener("resize", () => this.resize());
@@ -22000,13 +22093,29 @@ var Game = class {
 		this.scene.add(rimLight);
 	}
 	buildMap() {
-		const outerRing = new Mesh(new RingGeometry(MAP_RADIUS + 5, MAP_RADIUS + 25, 64), new MeshStandardMaterial({
-			color: 396826,
-			roughness: .9
-		}));
-		outerRing.rotation.x = -Math.PI / 2;
-		outerRing.position.y = -.1;
-		this.scene.add(outerRing);
+		const abyss = new Mesh(new CircleGeometry(300, 32), new MeshBasicMaterial({ color: 133136 }));
+		abyss.rotation.x = -Math.PI / 2;
+		abyss.position.y = -15;
+		this.scene.add(abyss);
+		const cliffMat = new MeshStandardMaterial({
+			color: 859955,
+			roughness: .8,
+			metalness: .1
+		});
+		const cliff = new Mesh(new CylinderGeometry(MAP_RADIUS + 8, MAP_RADIUS + 12, 12, 48, 1, true), cliffMat);
+		cliff.position.y = -6;
+		this.scene.add(cliff);
+		const lipMat = new MeshStandardMaterial({
+			color: 1716304,
+			emissive: 870305,
+			emissiveIntensity: .08,
+			roughness: .6,
+			metalness: .2
+		});
+		const lip = new Mesh(new TorusGeometry(MAP_RADIUS + 6, 3, 6, 48), lipMat);
+		lip.rotation.x = Math.PI / 2;
+		lip.position.y = .5;
+		this.scene.add(lip);
 		const ground = new Mesh(new CircleGeometry(MAP_RADIUS + 5, 64), new MeshStandardMaterial({
 			color: 1385786,
 			roughness: .85,
@@ -22015,6 +22124,36 @@ var Game = class {
 		ground.rotation.x = -Math.PI / 2;
 		ground.receiveShadow = true;
 		this.scene.add(ground);
+		for (const tr of [
+			{
+				r: 110,
+				h: .3,
+				color: 1518917
+			},
+			{
+				r: 80,
+				h: .6,
+				color: 1717074
+			},
+			{
+				r: 50,
+				h: 1,
+				color: 1981023
+			},
+			{
+				r: 25,
+				h: 1.5,
+				color: 2245226
+			}
+		]) {
+			const ring = new Mesh(new CylinderGeometry(tr.r, tr.r + 2, tr.h, 48), new MeshStandardMaterial({
+				color: tr.color,
+				roughness: .8
+			}));
+			ring.position.y = tr.h / 2;
+			ring.receiveShadow = true;
+			this.scene.add(ring);
+		}
 		const ringColors = [
 			1716304,
 			1980504,
@@ -22031,11 +22170,11 @@ var Game = class {
 			const r = new Mesh(new RingGeometry(ringRadii[i] - 2, ringRadii[i], 64), new MeshStandardMaterial({
 				color: ringColors[i],
 				emissive: 2733814,
-				emissiveIntensity: .05,
+				emissiveIntensity: .08,
 				roughness: .7
 			}));
 			r.rotation.x = -Math.PI / 2;
-			r.position.y = .05 + i * .02;
+			r.position.y = .1 + i * .1;
 			this.scene.add(r);
 		}
 		const pathPts = generateSpiralPath();
