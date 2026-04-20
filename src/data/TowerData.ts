@@ -1,110 +1,102 @@
-export interface TowerStats {
-  name: string;
+export interface SkillConfig {
   nameKo: string;
-  cost: number;
+  type: 'volley' | 'earthquake' | 'meteor' | 'blizzard' | 'chain_lightning';
+  cooldown: number;
   damage: number;
-  range: number;
-  fireRate: number; // shots per second
-  color: number;
-  projectileColor: number;
-  projectileSpeed: number;
-  splash: boolean;
-  splashRadius: number;
-  slow: number; // 0-1, percentage slow
-  slowDuration: number; // ms
-  chain: number; // number of chain targets
-  upgradeCost: number[];
-  damagePerLevel: number;
-  rangePerLevel: number;
-  fireRatePerLevel: number;
-  description: string;
+  radius: number;
+  duration?: number;
 }
 
-export const TOWER_DATA: Record<string, TowerStats> = {
+export interface TowerConfig {
+  id: string;
+  nameKo: string;
+  description: string;
+  baseDamage: number;
+  baseRange: number;
+  baseFireRate: number;
+  projectileSpeed: number;
+  color: number;
+  splash?: boolean;
+  slow?: number;
+  chain?: number;
+  skill: SkillConfig;
+}
+
+export const TOWER_TYPES: Record<string, TowerConfig> = {
   archer: {
-    name: 'Archer',
-    nameKo: '궁수탑',
-    cost: 50,
-    damage: 15,
-    range: 120,
-    fireRate: 1.5,
-    color: 0x4caf50,
-    projectileColor: 0xcddc39,
-    projectileSpeed: 400,
-    splash: false,
-    splashRadius: 0,
-    slow: 0,
-    slowDuration: 0,
-    chain: 0,
-    upgradeCost: [40, 80, 150],
-    damagePerLevel: 8,
-    rangePerLevel: 10,
-    fireRatePerLevel: 0.3,
-    description: '빠른 공격속도, 단일 대상',
+    id: 'archer', nameKo: '궁수탑', description: '빠른 연사, 정밀 사격',
+    baseDamage: 12, baseRange: 55, baseFireRate: 1.8, projectileSpeed: 280,
+    color: 0xff8f00,
+    skill: { nameKo: '화살 폭풍', type: 'volley', cooldown: 18, damage: 8, radius: 55 },
   },
-  cannon: {
-    name: 'Cannon',
-    nameKo: '캐논탑',
-    cost: 80,
-    damage: 40,
-    range: 100,
-    fireRate: 0.6,
-    color: 0xf44336,
-    projectileColor: 0xff5722,
-    projectileSpeed: 250,
-    splash: true,
-    splashRadius: 50,
-    slow: 0,
-    slowDuration: 0,
-    chain: 0,
-    upgradeCost: [60, 120, 200],
-    damagePerLevel: 20,
-    rangePerLevel: 8,
-    fireRatePerLevel: 0.1,
-    description: '범위 공격, 느린 속도',
+  warrior: {
+    id: 'warrior', nameKo: '전사탑', description: '강력한 범위 공격',
+    baseDamage: 25, baseRange: 40, baseFireRate: 0.8, projectileSpeed: 200,
+    color: 0xd32f2f, splash: true,
+    skill: { nameKo: '지진', type: 'earthquake', cooldown: 25, damage: 60, radius: 70, duration: 1.5 },
+  },
+  mage: {
+    id: 'mage', nameKo: '마법탑', description: '마법 스플래시 데미지',
+    baseDamage: 18, baseRange: 50, baseFireRate: 1.0, projectileSpeed: 220,
+    color: 0x7b1fa2, splash: true,
+    skill: { nameKo: '메테오', type: 'meteor', cooldown: 28, damage: 45, radius: 80 },
   },
   ice: {
-    name: 'Ice',
-    nameKo: '아이스탑',
-    cost: 60,
-    damage: 8,
-    range: 110,
-    fireRate: 1.0,
-    color: 0x03a9f4,
-    projectileColor: 0x81d4fa,
-    projectileSpeed: 350,
-    splash: false,
-    splashRadius: 0,
-    slow: 0.4,
-    slowDuration: 2000,
-    chain: 0,
-    upgradeCost: [50, 100, 180],
-    damagePerLevel: 5,
-    rangePerLevel: 10,
-    fireRatePerLevel: 0.2,
-    description: '적을 감속시킴',
+    id: 'ice', nameKo: '얼음탑', description: '적 이동속도 감소',
+    baseDamage: 8, baseRange: 50, baseFireRate: 1.2, projectileSpeed: 240,
+    color: 0x00bcd4, slow: 0.4,
+    skill: { nameKo: '블리자드', type: 'blizzard', cooldown: 32, damage: 15, radius: 999, duration: 3 },
   },
-  lightning: {
-    name: 'Lightning',
-    nameKo: '번개탑',
-    cost: 100,
-    damage: 25,
-    range: 130,
-    fireRate: 0.8,
-    color: 0xffeb3b,
-    projectileColor: 0xfff176,
-    projectileSpeed: 600,
-    splash: false,
-    splashRadius: 0,
-    slow: 0,
-    slowDuration: 0,
-    chain: 3,
-    upgradeCost: [80, 150, 250],
-    damagePerLevel: 12,
-    rangePerLevel: 10,
-    fireRatePerLevel: 0.15,
-    description: '연쇄 번개, 다중 대상',
+  thunder: {
+    id: 'thunder', nameKo: '번개탑', description: '연쇄 번개 공격',
+    baseDamage: 15, baseRange: 48, baseFireRate: 1.1, projectileSpeed: 350,
+    color: 0xfdd835, chain: 3,
+    skill: { nameKo: '천둥벼락', type: 'chain_lightning', cooldown: 26, damage: 35, radius: 999 },
   },
 };
 
-export const TOWER_TYPES = Object.keys(TOWER_DATA);
+export const TIER_NAMES = ['일반', '정예', '희귀', '전설', '신화'];
+export const TIER_COLORS = [0x90a4ae, 0x4fc3f7, 0xab47bc, 0xffa726, 0xff1744];
+export const TIER_MULTIPLIERS = [1, 2.5, 6, 15, 40];
+export const MAX_TIER = 5;
+export const SKILL_MIN_TIER = 3;
+
+export const SUMMON_COST_BASE = 30;
+export const SUMMON_COST_INC = 3;
+export const MAX_SUMMON_LEVEL = 4;
+export const SUMMON_UPGRADE_COSTS = [150, 400, 800];
+
+export function getSummonProbabilities(level: number): number[] {
+  const probs = [
+    [0.70, 0.25, 0.05, 0, 0],
+    [0.50, 0.35, 0.12, 0.03, 0],
+    [0.30, 0.35, 0.25, 0.08, 0.02],
+    [0.15, 0.30, 0.30, 0.18, 0.07],
+  ];
+  return probs[Math.min(level, probs.length) - 1];
+}
+
+export function rollSummonTier(level: number): number {
+  const probs = getSummonProbabilities(level);
+  let r = Math.random(), cum = 0;
+  for (let i = 0; i < probs.length; i++) { cum += probs[i]; if (r < cum) return i + 1; }
+  return 1;
+}
+
+export function rollSummonType(): string {
+  const types = Object.keys(TOWER_TYPES);
+  return types[Math.floor(Math.random() * types.length)];
+}
+
+export function getTowerDamage(type: string, tier: number): number {
+  return Math.floor(TOWER_TYPES[type].baseDamage * TIER_MULTIPLIERS[tier - 1]);
+}
+export function getTowerRange(type: string, tier: number): number {
+  return TOWER_TYPES[type].baseRange + (tier - 1) * 5;
+}
+export function getTowerFireRate(type: string, tier: number): number {
+  return TOWER_TYPES[type].baseFireRate * (1 + (tier - 1) * 0.15);
+}
+export function getTowerSellValue(tier: number): number {
+  return [10, 25, 75, 200, 500][tier - 1] || 10;
+}

@@ -1,43 +1,13 @@
-import * as Phaser from 'phaser';
-import { BootScene } from './scenes/BootScene';
-import { MenuScene } from './scenes/MenuScene';
-import { GameScene } from './scenes/GameScene';
-import { GameOverScene } from './scenes/GameOverScene';
+import { Game } from './game/Game';
 
-const config: Phaser.Types.Core.GameConfig = {
-  type: Phaser.AUTO,
-  parent: 'game-container',
-  width: 390,
-  height: 780,
-  scale: {
-    mode: Phaser.Scale.FIT,
-    autoCenter: Phaser.Scale.CENTER_BOTH,
-  },
-  backgroundColor: '#0a1628',
-  scene: [BootScene, MenuScene, GameScene, GameOverScene],
-  input: {
-    touch: {
-      capture: true,
-    },
-  },
-  render: {
-    antialias: true,
-    pixelArt: false,
-  },
-  fps: {
-    target: 60,
-    forceSetTimeOut: false,
-  },
-};
-
-const game = new Phaser.Game(config);
+// Initialize game
+const container = document.getElementById('game-container')!;
+new Game(container);
 
 // PWA service worker registration
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js').catch(() => {
-      // Service worker registration failed - fine for development
-    });
+    navigator.serviceWorker.register('./sw.js').catch(() => {});
   });
 }
 
@@ -72,7 +42,7 @@ window.addEventListener('appinstalled', () => {
   deferredPrompt = null;
 });
 
-// Prevent default touch behaviors
+// Prevent default touch behaviors for mobile
 document.addEventListener('touchmove', (e) => e.preventDefault(), { passive: false });
 document.addEventListener('gesturestart', (e) => e.preventDefault());
 document.addEventListener('gesturechange', (e) => e.preventDefault());

@@ -1,17 +1,19 @@
 {
-  "name": "kingdom-defense",
-  "version": "1.0.0",
-  "description": "Kingdom Defense - Tower Defense Mobile Game",
+  "name": "penguin-defense-3d",
+  "version": "2.0.0",
+  "description": "펭귄 대모험 3D - 원형 타워 디펜스",
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
-    "preview": "vite preview"
+    "build": "vite build",
+    "preview": "vite preview",
+    "deploy": "bash scripts/deploy.sh"
   },
   "dependencies": {
-    "phaser": "^4.0.0"
+    "three": "^0.172.0"
   },
   "devDependencies": {
+    "@types/three": "^0.172.0",
     "typescript": "^6.0.3",
     "vite": "^8.0.9"
   }

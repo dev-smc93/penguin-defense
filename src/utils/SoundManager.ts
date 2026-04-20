@@ -423,3 +423,120 @@ export function stopBGM(): void {
   bgmOscs = [];
   bgmGain = null;
 }
+
+// ====== SKILL SOUNDS ======
+
+export function playSkillVolley(): void {
+  const ac = getCtx(); const now = ac.currentTime;
+  for (let i = 0; i < 8; i++) {
+    const t = now + i * 0.05;
+    const osc = ac.createOscillator();
+    const gain = createGain(ac, 0.06);
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(1800 + i * 100, t);
+    osc.frequency.exponentialRampToValueAtTime(600, t + 0.08);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.1);
+    osc.connect(gain); osc.start(t); osc.stop(t + 0.1);
+  }
+}
+
+export function playSkillEarthquake(): void {
+  const ac = getCtx(); const now = ac.currentTime;
+  // Deep rumble
+  const buf = ac.createBuffer(1, ac.sampleRate * 1.5, ac.sampleRate);
+  const data = buf.getChannelData(0);
+  for (let i = 0; i < data.length; i++) {
+    const t = i / ac.sampleRate;
+    data[i] = (Math.random() * 2 - 1) * Math.sin(t * 50) * (1 - t / 1.5) * 0.8;
+  }
+  const noise = ac.createBufferSource(); noise.buffer = buf;
+  const lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 120;
+  const gain = createGain(ac, 0.2);
+  noise.connect(lp); lp.connect(gain); noise.start(now); noise.stop(now + 1.5);
+  // Impact
+  const osc = ac.createOscillator();
+  const g2 = createGain(ac, 0.15);
+  osc.type = 'sawtooth'; osc.frequency.setValueAtTime(80, now);
+  osc.frequency.exponentialRampToValueAtTime(20, now + 0.8);
+  g2.gain.exponentialRampToValueAtTime(0.001, now + 1.0);
+  osc.connect(g2); osc.start(now); osc.stop(now + 1.0);
+}
+
+export function playSkillMeteor(): void {
+  const ac = getCtx(); const now = ac.currentTime;
+  for (let i = 0; i < 5; i++) {
+    const t = now + i * 0.3;
+    // Whistle down
+    const osc = ac.createOscillator();
+    const gain = createGain(ac, 0.08);
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(2000, t);
+    osc.frequency.exponentialRampToValueAtTime(200, t + 0.25);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+    osc.connect(gain); osc.start(t); osc.stop(t + 0.3);
+    // Boom
+    const osc2 = ac.createOscillator();
+    const g2 = createGain(ac, 0.12);
+    osc2.type = 'sawtooth'; osc2.frequency.setValueAtTime(150, t + 0.25);
+    osc2.frequency.exponentialRampToValueAtTime(30, t + 0.6);
+    g2.gain.exponentialRampToValueAtTime(0.001, t + 0.65);
+    osc2.connect(g2); osc2.start(t + 0.25); osc2.stop(t + 0.65);
+  }
+}
+
+export function playSkillBlizzard(): void {
+  const ac = getCtx(); const now = ac.currentTime;
+  // Wind whoosh
+  const buf = ac.createBuffer(1, ac.sampleRate * 2, ac.sampleRate);
+  const data = buf.getChannelData(0);
+  for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1);
+  const noise = ac.createBufferSource(); noise.buffer = buf;
+  const bp = ac.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 1;
+  bp.frequency.setValueAtTime(200, now);
+  bp.frequency.exponentialRampToValueAtTime(4000, now + 0.8);
+  bp.frequency.exponentialRampToValueAtTime(600, now + 2.0);
+  const gain = createGain(ac, 0.12);
+  gain.gain.setValueAtTime(0.12, now);
+  gain.gain.linearRampToValueAtTime(0.001, now + 2.0);
+  noise.connect(bp); bp.connect(gain); noise.start(now); noise.stop(now + 2.0);
+  // Ice crystals
+  [3200, 4000, 3600].forEach((f, i) => {
+    const osc = ac.createOscillator();
+    const g = createGain(ac, 0.03);
+    osc.type = 'sine'; osc.frequency.value = f;
+    g.gain.exponentialRampToValueAtTime(0.001, now + 0.5 + i * 0.3);
+    osc.connect(g); osc.start(now + i * 0.2); osc.stop(now + 0.5 + i * 0.3);
+  });
+}
+
+export function playSkillChainLightning(): void {
+  const ac = getCtx(); const now = ac.currentTime;
+  // Big electric burst
+  const buf = ac.createBuffer(1, ac.sampleRate * 0.8, ac.sampleRate);
+  const data = buf.getChannelData(0);
+  for (let i = 0; i < data.length; i++) {
+    const t = i / ac.sampleRate;
+    data[i] = (Math.random() * 2 - 1) * Math.sin(t * 1200) * Math.exp(-t * 3);
+  }
+  const noise = ac.createBufferSource(); noise.buffer = buf;
+  const bp = ac.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 3500; bp.Q.value = 3;
+  const gain = createGain(ac, 0.15);
+  noise.connect(bp); bp.connect(gain); noise.start(now); noise.stop(now + 0.8);
+  // Thunder crack
+  const osc = ac.createOscillator();
+  const g2 = createGain(ac, 0.1);
+  osc.type = 'sawtooth';
+  osc.frequency.setValueAtTime(200, now + 0.05);
+  osc.frequency.exponentialRampToValueAtTime(40, now + 0.6);
+  g2.gain.exponentialRampToValueAtTime(0.001, now + 0.7);
+  osc.connect(g2); osc.start(now + 0.05); osc.stop(now + 0.7);
+}
+
+export function playSkill(type: string): void {
+  const fns: Record<string, () => void> = {
+    volley: playSkillVolley, earthquake: playSkillEarthquake,
+    meteor: playSkillMeteor, blizzard: playSkillBlizzard,
+    chain_lightning: playSkillChainLightning,
+  };
+  fns[type]?.();
+}
