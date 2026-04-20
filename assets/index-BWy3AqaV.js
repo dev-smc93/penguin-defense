@@ -7312,6 +7312,147 @@ var Frustum = class {
 		return new this.constructor().copy(this);
 	}
 };
+var LineBasicMaterial = class extends Material {
+	constructor(parameters) {
+		super();
+		this.isLineBasicMaterial = true;
+		this.type = "LineBasicMaterial";
+		this.color = new Color(16777215);
+		this.map = null;
+		this.linewidth = 1;
+		this.linecap = "round";
+		this.linejoin = "round";
+		this.fog = true;
+		this.setValues(parameters);
+	}
+	copy(source) {
+		super.copy(source);
+		this.color.copy(source.color);
+		this.map = source.map;
+		this.linewidth = source.linewidth;
+		this.linecap = source.linecap;
+		this.linejoin = source.linejoin;
+		this.fog = source.fog;
+		return this;
+	}
+};
+var _vStart = /* @__PURE__ */ new Vector3();
+var _vEnd = /* @__PURE__ */ new Vector3();
+var _inverseMatrix$1 = /* @__PURE__ */ new Matrix4();
+var _ray$1 = /* @__PURE__ */ new Ray();
+var _sphere$1 = /* @__PURE__ */ new Sphere();
+var _intersectPointOnRay = /* @__PURE__ */ new Vector3();
+var _intersectPointOnSegment = /* @__PURE__ */ new Vector3();
+var Line = class extends Object3D {
+	constructor(geometry = new BufferGeometry(), material = new LineBasicMaterial()) {
+		super();
+		this.isLine = true;
+		this.type = "Line";
+		this.geometry = geometry;
+		this.material = material;
+		this.updateMorphTargets();
+	}
+	copy(source, recursive) {
+		super.copy(source, recursive);
+		this.material = Array.isArray(source.material) ? source.material.slice() : source.material;
+		this.geometry = source.geometry;
+		return this;
+	}
+	computeLineDistances() {
+		const geometry = this.geometry;
+		if (geometry.index === null) {
+			const positionAttribute = geometry.attributes.position;
+			const lineDistances = [0];
+			for (let i = 1, l = positionAttribute.count; i < l; i++) {
+				_vStart.fromBufferAttribute(positionAttribute, i - 1);
+				_vEnd.fromBufferAttribute(positionAttribute, i);
+				lineDistances[i] = lineDistances[i - 1];
+				lineDistances[i] += _vStart.distanceTo(_vEnd);
+			}
+			geometry.setAttribute("lineDistance", new Float32BufferAttribute(lineDistances, 1));
+		} else console.warn("THREE.Line.computeLineDistances(): Computation only possible with non-indexed BufferGeometry.");
+		return this;
+	}
+	raycast(raycaster, intersects) {
+		const geometry = this.geometry;
+		const matrixWorld = this.matrixWorld;
+		const threshold = raycaster.params.Line.threshold;
+		const drawRange = geometry.drawRange;
+		if (geometry.boundingSphere === null) geometry.computeBoundingSphere();
+		_sphere$1.copy(geometry.boundingSphere);
+		_sphere$1.applyMatrix4(matrixWorld);
+		_sphere$1.radius += threshold;
+		if (raycaster.ray.intersectsSphere(_sphere$1) === false) return;
+		_inverseMatrix$1.copy(matrixWorld).invert();
+		_ray$1.copy(raycaster.ray).applyMatrix4(_inverseMatrix$1);
+		const localThreshold = threshold / ((this.scale.x + this.scale.y + this.scale.z) / 3);
+		const localThresholdSq = localThreshold * localThreshold;
+		const step = this.isLineSegments ? 2 : 1;
+		const index = geometry.index;
+		const positionAttribute = geometry.attributes.position;
+		if (index !== null) {
+			const start = Math.max(0, drawRange.start);
+			const end = Math.min(index.count, drawRange.start + drawRange.count);
+			for (let i = start, l = end - 1; i < l; i += step) {
+				const a = index.getX(i);
+				const b = index.getX(i + 1);
+				const intersect = checkIntersection(this, raycaster, _ray$1, localThresholdSq, a, b);
+				if (intersect) intersects.push(intersect);
+			}
+			if (this.isLineLoop) {
+				const a = index.getX(end - 1);
+				const b = index.getX(start);
+				const intersect = checkIntersection(this, raycaster, _ray$1, localThresholdSq, a, b);
+				if (intersect) intersects.push(intersect);
+			}
+		} else {
+			const start = Math.max(0, drawRange.start);
+			const end = Math.min(positionAttribute.count, drawRange.start + drawRange.count);
+			for (let i = start, l = end - 1; i < l; i += step) {
+				const intersect = checkIntersection(this, raycaster, _ray$1, localThresholdSq, i, i + 1);
+				if (intersect) intersects.push(intersect);
+			}
+			if (this.isLineLoop) {
+				const intersect = checkIntersection(this, raycaster, _ray$1, localThresholdSq, end - 1, start);
+				if (intersect) intersects.push(intersect);
+			}
+		}
+	}
+	updateMorphTargets() {
+		const morphAttributes = this.geometry.morphAttributes;
+		const keys = Object.keys(morphAttributes);
+		if (keys.length > 0) {
+			const morphAttribute = morphAttributes[keys[0]];
+			if (morphAttribute !== void 0) {
+				this.morphTargetInfluences = [];
+				this.morphTargetDictionary = {};
+				for (let m = 0, ml = morphAttribute.length; m < ml; m++) {
+					const name = morphAttribute[m].name || String(m);
+					this.morphTargetInfluences.push(0);
+					this.morphTargetDictionary[name] = m;
+				}
+			}
+		}
+	}
+};
+function checkIntersection(object, raycaster, ray, thresholdSq, a, b) {
+	const positionAttribute = object.geometry.attributes.position;
+	_vStart.fromBufferAttribute(positionAttribute, a);
+	_vEnd.fromBufferAttribute(positionAttribute, b);
+	if (ray.distanceSqToSegment(_vStart, _vEnd, _intersectPointOnRay, _intersectPointOnSegment) > thresholdSq) return;
+	_intersectPointOnRay.applyMatrix4(object.matrixWorld);
+	const distance = raycaster.ray.origin.distanceTo(_intersectPointOnRay);
+	if (distance < raycaster.near || distance > raycaster.far) return;
+	return {
+		distance,
+		point: _intersectPointOnSegment.clone().applyMatrix4(object.matrixWorld),
+		index: a,
+		face: null,
+		faceIndex: null,
+		barycoord: null,
+		object
+	};
+}
 var PointsMaterial = class extends Material {
 	constructor(parameters) {
 		super();
@@ -20887,91 +21028,304 @@ var TowerEntity = class {
 			}
 		}
 		this.auraMesh = null;
-		const c = this.config.color;
-		const mat = new MeshStandardMaterial({
-			color: c,
-			emissive: c,
-			emissiveIntensity: Math.min(1, (this.tier - 1) * .15),
-			roughness: .4,
-			metalness: .3
+		const col = this.config.color;
+		const emI = Math.min(1, (this.tier - 1) * .18);
+		const baseH = 3 + this.tier * 1.2;
+		const ts = 1 + this.tier * .08;
+		const platMat = new MeshStandardMaterial({
+			color: 4086904,
+			roughness: .7,
+			metalness: .2
 		});
-		const baseH = 3 + this.tier;
-		const base = new Mesh(new CylinderGeometry(3.5, 4, baseH, 8), mat);
-		base.position.y = baseH / 2;
-		base.castShadow = true;
-		this.group.add(base);
+		const plat = new Mesh(new CylinderGeometry(4.2 * ts, 4.8 * ts, 1.2, 8), platMat);
+		plat.position.y = .6;
+		plat.castShadow = true;
+		this.group.add(plat);
 		if (this.type === "archer") {
-			const top = new Mesh(new ConeGeometry(3, 4 + this.tier, 8), mat.clone());
-			top.position.y = baseH + 2 + this.tier * .5;
-			top.castShadow = true;
-			this.group.add(top);
+			const wallMat = new MeshStandardMaterial({
+				color: 6130344,
+				emissive: col,
+				emissiveIntensity: emI,
+				roughness: .5,
+				metalness: .3
+			});
+			const body = new Mesh(new CylinderGeometry(3 * ts, 3.8 * ts, baseH, 6), wallMat);
+			body.position.y = 1.2 + baseH / 2;
+			body.castShadow = true;
+			this.group.add(body);
+			const armMat = new MeshStandardMaterial({
+				color: 9136404,
+				roughness: .6
+			});
+			const arm = new Mesh(new BoxGeometry(8 * ts, .6, .8), armMat);
+			arm.position.y = 1.2 + baseH + .5;
+			arm.castShadow = true;
+			this.group.add(arm);
+			const boltMat = new MeshStandardMaterial({
+				color: 8445674,
+				emissive: 2733814,
+				emissiveIntensity: .4
+			});
+			const bolt = new Mesh(new ConeGeometry(.3, 3, 4), boltMat);
+			bolt.position.set(0, 1.2 + baseH + .5, 1.5);
+			bolt.rotation.x = Math.PI / 2;
+			this.group.add(bolt);
+			const roof = new Mesh(new ConeGeometry(3.5 * ts, 3, 6), new MeshStandardMaterial({
+				color: 13012051,
+				roughness: .6
+			}));
+			roof.position.y = 1.2 + baseH + 2.5;
+			roof.castShadow = true;
+			this.group.add(roof);
+			const slit = new Mesh(new BoxGeometry(1.5, .5, .3), new MeshBasicMaterial({ color: 0 }));
+			slit.position.set(0, 1.2 + baseH * .7, 3 * ts + .1);
+			this.group.add(slit);
 		} else if (this.type === "warrior") {
-			const top = new Mesh(new BoxGeometry(6, 2 + this.tier, 6), mat.clone());
-			top.position.y = baseH + 1 + this.tier * .3;
-			top.castShadow = true;
-			this.group.add(top);
+			const wallMat = new MeshStandardMaterial({
+				color: 8035253,
+				emissive: col,
+				emissiveIntensity: emI,
+				roughness: .5,
+				metalness: .4
+			});
+			const wall = new Mesh(new BoxGeometry(7 * ts, baseH, 7 * ts), wallMat);
+			wall.position.y = 1.2 + baseH / 2;
+			wall.castShadow = true;
+			this.group.add(wall);
 			for (let i = 0; i < 4; i++) {
-				const angle = i / 4 * Math.PI * 2;
-				const b = new Mesh(new BoxGeometry(1.5, 2, 1.5), mat.clone());
-				b.position.set(Math.cos(angle) * 2.5, baseH + 3 + this.tier * .3, Math.sin(angle) * 2.5);
-				this.group.add(b);
+				const a = i / 4 * Math.PI * 2 + Math.PI / 4;
+				const r = 3.8 * ts;
+				const turret = new Mesh(new CylinderGeometry(1.2 * ts, 1.5 * ts, baseH + 3, 6), wallMat.clone());
+				turret.position.set(Math.cos(a) * r, 1.2 + (baseH + 3) / 2, Math.sin(a) * r);
+				turret.castShadow = true;
+				this.group.add(turret);
+				const cap = new Mesh(new ConeGeometry(1.8 * ts, 2, 6), new MeshStandardMaterial({
+					color: 10367024,
+					roughness: .5
+				}));
+				cap.position.set(Math.cos(a) * r, 1.2 + baseH + 4, Math.sin(a) * r);
+				this.group.add(cap);
 			}
+			for (let i = 0; i < 8; i++) {
+				const a = i / 8 * Math.PI * 2;
+				const bt = new Mesh(new BoxGeometry(1, 1.5, 1), new MeshStandardMaterial({
+					color: 6323595,
+					roughness: .6
+				}));
+				bt.position.set(Math.cos(a) * 3.2 * ts, 1.2 + baseH + .8, Math.sin(a) * 3.2 * ts);
+				this.group.add(bt);
+			}
+			const shield = new Mesh(new CircleGeometry(1.5, 6), new MeshStandardMaterial({
+				color: 13840175,
+				emissive: 13840175,
+				emissiveIntensity: .3,
+				metalness: .6
+			}));
+			shield.position.set(0, 1.2 + baseH * .6, 3.6 * ts);
+			this.group.add(shield);
 		} else if (this.type === "mage") {
+			const stoneMat = new MeshStandardMaterial({
+				color: 6048394,
+				emissive: col,
+				emissiveIntensity: emI,
+				roughness: .4,
+				metalness: .2
+			});
+			const body = new Mesh(new CylinderGeometry(2.5 * ts, 3.5 * ts, baseH + 2, 8), stoneMat);
+			body.position.y = 1.2 + (baseH + 2) / 2;
+			body.castShadow = true;
+			this.group.add(body);
+			const hatMat = new MeshStandardMaterial({
+				color: 3218322,
+				emissive: 4532128,
+				emissiveIntensity: .3,
+				roughness: .5
+			});
+			const hat = new Mesh(new ConeGeometry(4 * ts, 6 + this.tier, 8), hatMat);
+			hat.position.y = 1.2 + baseH + 4 + this.tier * .3;
+			hat.castShadow = true;
+			this.group.add(hat);
+			const brim = new Mesh(new CylinderGeometry(4.5 * ts, 4.5 * ts, .5, 12), new MeshStandardMaterial({
+				color: 3218322,
+				roughness: .5
+			}));
+			brim.position.y = 1.2 + baseH + 1.5;
+			this.group.add(brim);
 			const orbMat = new MeshStandardMaterial({
 				color: 13538264,
 				emissive: 11225020,
-				emissiveIntensity: .5 + this.tier * .2,
+				emissiveIntensity: .6 + this.tier * .2,
 				transparent: true,
-				opacity: .9
+				opacity: .85
 			});
-			const orb = new Mesh(new SphereGeometry(1.5 + this.tier * .3, 12, 12), orbMat);
-			orb.position.y = baseH + 4 + this.tier * .5;
+			const orb = new Mesh(new SphereGeometry(1.2 + this.tier * .25, 12, 12), orbMat);
+			orb.position.set(0, 1.2 + baseH * .6, 3.5 * ts);
 			this.group.add(orb);
+			const runeMat = new MeshBasicMaterial({
+				color: 11225020,
+				transparent: true,
+				opacity: .3,
+				side: 2
+			});
+			const rune = new Mesh(new RingGeometry(1.8, 2.2, 16), runeMat);
+			rune.position.copy(orb.position);
+			rune.rotation.x = -Math.PI / 2;
+			this.group.add(rune);
+			for (let i = 0; i < 3; i++) {
+				const a = i / 3 * Math.PI * 2;
+				const win = new Mesh(new PlaneGeometry(.8, 1.5), new MeshBasicMaterial({ color: 13538264 }));
+				win.position.set(Math.cos(a) * 2.6 * ts, 1.2 + baseH * .5, Math.sin(a) * 2.6 * ts);
+				win.lookAt(0, win.position.y, 0);
+				this.group.add(win);
+			}
 		} else if (this.type === "ice") {
-			const iceMat = new MeshStandardMaterial({
+			const crystMat = new MeshStandardMaterial({
 				color: 8445674,
 				emissive: 48340,
-				emissiveIntensity: .3 + this.tier * .15,
+				emissiveIntensity: .35 + this.tier * .15,
 				transparent: true,
-				opacity: .8,
-				roughness: .1
+				opacity: .75,
+				roughness: .05,
+				metalness: .1
 			});
-			const crystal = new Mesh(new OctahedronGeometry(2.5 + this.tier * .4, 0), iceMat);
-			crystal.position.y = baseH + 3 + this.tier * .5;
-			crystal.rotation.y = Math.PI / 4;
-			this.group.add(crystal);
+			const frozenBase = new Mesh(new CylinderGeometry(3.5 * ts, 4 * ts, 2, 6), new MeshStandardMaterial({
+				color: 11725810,
+				roughness: .3,
+				metalness: .1
+			}));
+			frozenBase.position.y = 2.2;
+			frozenBase.castShadow = true;
+			this.group.add(frozenBase);
+			const mainCrystal = new Mesh(new OctahedronGeometry(2.5 * ts, 0), crystMat);
+			mainCrystal.position.y = 1.2 + baseH + 2;
+			mainCrystal.scale.y = 2;
+			mainCrystal.castShadow = true;
+			this.group.add(mainCrystal);
+			const smallCount = 3 + Math.floor(this.tier / 2);
+			for (let i = 0; i < smallCount; i++) {
+				const a = i / smallCount * Math.PI * 2;
+				const r = 2.5 * ts;
+				const h = 2 + Math.random() * 3 + this.tier * .5;
+				const sc = new Mesh(new OctahedronGeometry(.8 + Math.random() * .5, 0), crystMat.clone());
+				sc.position.set(Math.cos(a) * r, 1.2 + h, Math.sin(a) * r);
+				sc.scale.y = 1.5 + Math.random();
+				sc.rotation.y = Math.random() * Math.PI;
+				sc.rotation.z = (Math.random() - .5) * .3;
+				this.group.add(sc);
+			}
+			const mistMat = new MeshBasicMaterial({
+				color: 11725810,
+				transparent: true,
+				opacity: .15,
+				side: 2
+			});
+			const mist = new Mesh(new RingGeometry(3, 5.5 * ts, 20), mistMat);
+			mist.rotation.x = -Math.PI / 2;
+			mist.position.y = 1.5;
+			this.group.add(mist);
 		} else if (this.type === "thunder") {
-			const coil = new Mesh(new TorusGeometry(3, .4 + this.tier * .1, 8, 16), new MeshStandardMaterial({
+			const pillarMat = new MeshStandardMaterial({
+				color: 5533306,
+				emissive: col,
+				emissiveIntensity: emI,
+				roughness: .4,
+				metalness: .5
+			});
+			const pillar = new Mesh(new CylinderGeometry(2 * ts, 3 * ts, baseH + 2, 6), pillarMat);
+			pillar.position.y = 1.2 + (baseH + 2) / 2;
+			pillar.castShadow = true;
+			this.group.add(pillar);
+			const rodMat = new MeshStandardMaterial({
 				color: 16635957,
 				emissive: 16635957,
-				emissiveIntensity: .4 + this.tier * .2
-			}));
-			coil.position.y = baseH + 2;
-			coil.rotation.x = Math.PI / 2;
-			this.group.add(coil);
+				emissiveIntensity: .5 + this.tier * .2,
+				metalness: .8
+			});
+			const rod = new Mesh(new CylinderGeometry(.3, .15, 5 + this.tier, 4), rodMat);
+			rod.position.y = 1.2 + baseH + 4 + this.tier * .3;
+			this.group.add(rod);
+			const coilCount = 2 + Math.floor(this.tier / 2);
+			for (let i = 0; i < coilCount; i++) {
+				const coilY = 3.2 + i * (baseH / coilCount);
+				const coil = new Mesh(new TorusGeometry(2.5 * ts, .25 + this.tier * .05, 8, 16), new MeshStandardMaterial({
+					color: 16635957,
+					emissive: 16498733,
+					emissiveIntensity: .4 + this.tier * .15
+				}));
+				coil.position.y = coilY;
+				coil.rotation.x = Math.PI / 2;
+				this.group.add(coil);
+			}
+			const sparkMat = new MeshStandardMaterial({
+				color: 16774557,
+				emissive: 16635957,
+				emissiveIntensity: .8,
+				transparent: true,
+				opacity: .7
+			});
+			const spark = new Mesh(new SphereGeometry(.8 + this.tier * .2, 8, 8), sparkMat);
+			spark.position.y = 1.2 + baseH + 7 + this.tier * .5;
+			this.group.add(spark);
+			for (let i = 0; i < 3; i++) {
+				const a = i / 3 * Math.PI * 2 + Math.random();
+				const arc = new Mesh(new CylinderGeometry(.08, .08, 4, 3), new MeshBasicMaterial({ color: 16635957 }));
+				arc.position.set(Math.cos(a) * 1.5, 1.2 + baseH + 3, Math.sin(a) * 1.5);
+				arc.rotation.z = (Math.random() - .5) * .8;
+				this.group.add(arc);
+			}
 		}
 		if (this.tier >= 3) {
 			const auraMat = new MeshBasicMaterial({
 				color: TIER_COLORS[this.tier - 1],
 				transparent: true,
-				opacity: .2,
+				opacity: .25,
 				side: 2
 			});
-			this.auraMesh = new Mesh(new RingGeometry(4, 6, 24), auraMat);
+			this.auraMesh = new Mesh(new RingGeometry(5, 7.5, 32), auraMat);
 			this.auraMesh.rotation.x = -Math.PI / 2;
 			this.auraMesh.position.y = .5;
 			this.group.add(this.auraMesh);
+			const innerAura = new Mesh(new RingGeometry(3, 5, 32), new MeshBasicMaterial({
+				color: TIER_COLORS[this.tier - 1],
+				transparent: true,
+				opacity: .1,
+				side: 2
+			}));
+			innerAura.rotation.x = -Math.PI / 2;
+			innerAura.position.y = .6;
+			this.group.add(innerAura);
 		}
 		if (this.tier >= 4) {
 			const crownMat = new MeshStandardMaterial({
 				color: 16766720,
 				emissive: 16752640,
-				emissiveIntensity: .5,
-				metalness: .8
+				emissiveIntensity: .6,
+				metalness: .9,
+				roughness: .2
 			});
-			const crown = new Mesh(new CylinderGeometry(1.5, 2, 1.5, 6), crownMat);
-			crown.position.y = baseH + 8 + this.tier;
+			const crown = new Mesh(new CylinderGeometry(1.2, 1.8, 1.8, 5), crownMat);
+			const topY = this.type === "warrior" ? 1.2 + baseH + 6 : this.type === "mage" ? 1.2 + baseH + 6 + this.tier : this.type === "ice" ? 1.2 + baseH + 6 : this.type === "thunder" ? 1.2 + baseH + 8 + this.tier : 1.2 + baseH + 5;
+			crown.position.y = topY;
 			this.group.add(crown);
+			const jewel = new Mesh(new SphereGeometry(.4, 8, 8), new MeshStandardMaterial({
+				color: 16717636,
+				emissive: 16717636,
+				emissiveIntensity: .5
+			}));
+			jewel.position.y = topY + 1;
+			this.group.add(jewel);
+		}
+		if (this.tier >= 5) {
+			const mythicMat = new MeshBasicMaterial({
+				color: 16717636,
+				transparent: true,
+				opacity: .2,
+				side: 2
+			});
+			const mythicRing = new Mesh(new RingGeometry(6, 9, 32), mythicMat);
+			mythicRing.rotation.x = -Math.PI / 2;
+			mythicRing.position.y = 1;
+			this.group.add(mythicRing);
 		}
 	}
 	getDamage() {
@@ -21056,52 +21410,258 @@ var MonsterEntity = class {
 	}
 	buildMesh() {
 		const s = this.stats.size * .15;
-		const color = this.stats.color;
-		const mat = new MeshStandardMaterial({
-			color,
-			roughness: .6,
-			metalness: .1
-		});
-		if (this.type === "boss") {
-			mat.emissive = new Color(6684672);
-			mat.emissiveIntensity = .3;
-		}
-		if (this.type === "dragon") {
-			mat.transparent = true;
-			mat.opacity = .6;
-			mat.emissive = new Color(9795021);
-			mat.emissiveIntensity = .4;
-		}
-		const body = new Mesh(new SphereGeometry(s, 10, 8), mat);
-		body.position.y = s + .5;
-		body.castShadow = true;
-		this.group.add(body);
-		const eyeMat = new MeshBasicMaterial({ color: this.type === "dragon" ? 0 : 16711680 });
-		for (const side of [-1, 1]) {
-			const eye = new Mesh(new SphereGeometry(s * .2, 6, 6), eyeMat);
-			eye.position.set(side * s * .4, s + s * .3 + .5, s * .7);
-			this.group.add(eye);
-		}
-		if (this.type === "orc") {
-			const armor = new Mesh(new BoxGeometry(s * 1.4, s * .8, s * .3), new MeshStandardMaterial({
-				color: 6323595,
-				metalness: .7,
+		this.stats.color;
+		if (this.type === "goblin") {
+			const skinMat = new MeshStandardMaterial({
+				color: 5025616,
+				roughness: .7
+			});
+			const body = new Mesh(new SphereGeometry(s * .8, 10, 8), skinMat);
+			body.position.y = s * .9 + .5;
+			body.scale.y = 1.1;
+			body.castShadow = true;
+			this.group.add(body);
+			const head = new Mesh(new SphereGeometry(s * .55, 10, 8), skinMat);
+			head.position.y = s * 1.8 + .5;
+			this.group.add(head);
+			const earMat = new MeshStandardMaterial({ color: 3706428 });
+			for (const side of [-1, 1]) {
+				const ear = new Mesh(new ConeGeometry(s * .15, s * .5, 4), earMat);
+				ear.position.set(side * s * .5, s * 2 + .5, 0);
+				ear.rotation.z = side * .5;
+				this.group.add(ear);
+			}
+			const eyeMat = new MeshBasicMaterial({ color: 16771899 });
+			for (const side of [-1, 1]) {
+				const eye = new Mesh(new SphereGeometry(s * .12, 6, 6), eyeMat);
+				eye.position.set(side * s * .2, s * 1.9 + .5, s * .45);
+				this.group.add(eye);
+			}
+			for (const side of [-1, 1]) {
+				const arm = new Mesh(new CylinderGeometry(s * .1, s * .08, s * .8, 5), skinMat);
+				arm.position.set(side * s * .7, s * .8 + .5, 0);
+				arm.rotation.z = side * .4;
+				this.group.add(arm);
+			}
+			for (const side of [-1, 1]) {
+				const leg = new Mesh(new CylinderGeometry(s * .12, s * .1, s * .5, 5), skinMat);
+				leg.position.set(side * s * .25, s * .25 + .5, 0);
+				this.group.add(leg);
+			}
+		} else if (this.type === "orc") {
+			const skinMat = new MeshStandardMaterial({
+				color: 4878245,
+				roughness: .5,
+				metalness: .2
+			});
+			const torso = new Mesh(new SphereGeometry(s * .9, 10, 8), skinMat);
+			torso.position.y = s + .5;
+			torso.scale.set(1, 1.1, .85);
+			torso.castShadow = true;
+			this.group.add(torso);
+			const head = new Mesh(new SphereGeometry(s * .5, 10, 8), skinMat);
+			head.position.y = s * 1.9 + .5;
+			this.group.add(head);
+			const hornMat = new MeshStandardMaterial({
+				color: 9489145,
+				emissive: 4367861,
+				emissiveIntensity: .2,
 				roughness: .3
-			}));
-			armor.position.set(0, s + .5, s * .8);
-			this.group.add(armor);
-		} else if (this.type === "boss") {
-			const crown = new Mesh(new ConeGeometry(s * .6, s * .8, 5), new MeshStandardMaterial({
-				color: 16766720,
-				metalness: .9
-			}));
-			crown.position.y = s * 2 + 1;
-			this.group.add(crown);
+			});
+			for (const side of [-1, 1]) {
+				const horn = new Mesh(new ConeGeometry(s * .12, s * .7, 5), hornMat);
+				horn.position.set(side * s * .35, s * 2.3 + .5, -s * .1);
+				horn.rotation.z = side * .3;
+				this.group.add(horn);
+			}
+			for (const side of [-1, 1]) {
+				const eye = new Mesh(new SphereGeometry(s * .1, 6, 6), new MeshBasicMaterial({ color: 16717636 }));
+				eye.position.set(side * s * .2, s * 2 + .5, s * .4);
+				this.group.add(eye);
+			}
+			const armorMat = new MeshStandardMaterial({
+				color: 5533306,
+				metalness: .8,
+				roughness: .2
+			});
+			const chest = new Mesh(new BoxGeometry(s * 1.2, s * .7, s * .3), armorMat);
+			chest.position.set(0, s + .5, s * .6);
+			this.group.add(chest);
+			for (const side of [-1, 1]) {
+				const pad = new Mesh(new SphereGeometry(s * .3, 6, 6), armorMat);
+				pad.position.set(side * s * .9, s * 1.4 + .5, 0);
+				pad.scale.y = .6;
+				this.group.add(pad);
+			}
+			for (const side of [-1, 1]) {
+				const arm = new Mesh(new CylinderGeometry(s * .12, s * .1, s, 5), skinMat);
+				arm.position.set(side * s * .85, s * .7 + .5, 0);
+				arm.rotation.z = side * .2;
+				this.group.add(arm);
+			}
 		} else if (this.type === "troll") {
-			const bone = new Mesh(new CylinderGeometry(.2, .2, s), new MeshStandardMaterial({ color: 15658734 }));
-			bone.position.set(s * .6, s + .5, 0);
-			bone.rotation.z = .4;
-			this.group.add(bone);
+			const wrapMat = new MeshStandardMaterial({
+				color: 9268835,
+				roughness: .8
+			});
+			const bandageMat = new MeshStandardMaterial({
+				color: 14142664,
+				roughness: .9
+			});
+			const body = new Mesh(new CylinderGeometry(s * .7, s * .8, s * 1.8, 8), wrapMat);
+			body.position.y = s * .9 + .5;
+			body.castShadow = true;
+			this.group.add(body);
+			const head = new Mesh(new SphereGeometry(s * .55, 8, 8), wrapMat);
+			head.position.y = s * 2 + .5;
+			this.group.add(head);
+			for (let i = 0; i < 5; i++) {
+				const wrap = new Mesh(new TorusGeometry(s * (.75 - i * .03), .12, 4, 12), bandageMat);
+				wrap.position.y = s * .3 + i * s * .35 + .5;
+				wrap.rotation.x = Math.PI / 2;
+				wrap.rotation.y = i * .3;
+				this.group.add(wrap);
+			}
+			for (const side of [-1, 1]) {
+				const eye = new Mesh(new SphereGeometry(s * .12, 6, 6), new MeshBasicMaterial({ color: 16766287 }));
+				eye.position.set(side * s * .2, s * 2.1 + .5, s * .45);
+				this.group.add(eye);
+			}
+			for (const side of [-1, 1]) {
+				const arm = new Mesh(new CylinderGeometry(s * .15, s * .12, s * 1.2, 5), wrapMat);
+				arm.position.set(side * s * .85, s * .8 + .5, 0);
+				arm.rotation.z = side * .3;
+				this.group.add(arm);
+				const fist = new Mesh(new SphereGeometry(s * .25, 6, 6), wrapMat);
+				fist.position.set(side * s * 1.1, s * .2 + .5, 0);
+				this.group.add(fist);
+			}
+		} else if (this.type === "dragon") {
+			const ghostMat = new MeshStandardMaterial({
+				color: 15264502,
+				emissive: 9795021,
+				emissiveIntensity: .5,
+				transparent: true,
+				opacity: .5,
+				roughness: .3,
+				side: 2
+			});
+			const bodyTop = new Mesh(new SphereGeometry(s * .8, 12, 8), ghostMat);
+			bodyTop.position.y = s * 1.5 + .5;
+			bodyTop.castShadow = true;
+			this.group.add(bodyTop);
+			const tail = new Mesh(new ConeGeometry(s * .85, s * 1.5, 8), ghostMat.clone());
+			tail.position.y = s * .5 + .5;
+			tail.rotation.x = Math.PI;
+			this.group.add(tail);
+			const faceMat = new MeshBasicMaterial({
+				color: 1710638,
+				transparent: true,
+				opacity: .8
+			});
+			const mouth = new Mesh(new CircleGeometry(s * .25, 8), faceMat);
+			mouth.position.set(0, s * 1.3 + .5, s * .7);
+			this.group.add(mouth);
+			for (const side of [-1, 1]) {
+				const eye = new Mesh(new SphereGeometry(s * .15, 6, 6), new MeshBasicMaterial({ color: 0 }));
+				eye.position.set(side * s * .3, s * 1.7 + .5, s * .65);
+				this.group.add(eye);
+			}
+			const glowMat = new MeshBasicMaterial({
+				color: 8146431,
+				transparent: true,
+				opacity: .15
+			});
+			const glow = new Mesh(new SphereGeometry(s * 1.1, 8, 8), glowMat);
+			glow.position.y = s * 1.2 + .5;
+			this.group.add(glow);
+			for (let i = 0; i < 3; i++) {
+				const a = i / 3 * Math.PI * 2;
+				const wisp = new Mesh(new CylinderGeometry(.1, s * .15, s * .8, 4), new MeshBasicMaterial({
+					color: 11771355,
+					transparent: true,
+					opacity: .3
+				}));
+				wisp.position.set(Math.cos(a) * s * .5, s * .1 + .5, Math.sin(a) * s * .5);
+				wisp.rotation.z = (Math.random() - .5) * .5;
+				this.group.add(wisp);
+			}
+		} else if (this.type === "boss") {
+			const darkMat = new MeshStandardMaterial({
+				color: 2886154,
+				emissive: 9109504,
+				emissiveIntensity: .4,
+				roughness: .5,
+				metalness: .3
+			});
+			const body = new Mesh(new SphereGeometry(s, 12, 10), darkMat);
+			body.position.y = s + .5;
+			body.scale.set(1, 1.15, .9);
+			body.castShadow = true;
+			this.group.add(body);
+			const head = new Mesh(new SphereGeometry(s * .6, 10, 8), darkMat);
+			head.position.y = s * 2.1 + .5;
+			this.group.add(head);
+			const crownMat = new MeshStandardMaterial({
+				color: 16766720,
+				emissive: 16752640,
+				emissiveIntensity: .6,
+				metalness: .9,
+				roughness: .1
+			});
+			const crown = new Mesh(new CylinderGeometry(s * .35, s * .5, s * .5, 6), crownMat);
+			crown.position.y = s * 2.7 + .5;
+			this.group.add(crown);
+			for (let i = 0; i < 5; i++) {
+				const a = i / 5 * Math.PI * 2;
+				const spike = new Mesh(new ConeGeometry(s * .08, s * .35, 4), crownMat);
+				spike.position.set(Math.cos(a) * s * .35, s * 3 + .5, Math.sin(a) * s * .35);
+				this.group.add(spike);
+			}
+			for (const side of [-1, 1]) {
+				const eye = new Mesh(new SphereGeometry(s * .15, 6, 6), new MeshBasicMaterial({ color: 16717636 }));
+				eye.position.set(side * s * .25, s * 2.2 + .5, s * .5);
+				this.group.add(eye);
+				const eyeGlow = new Mesh(new SphereGeometry(s * .25, 6, 6), new MeshBasicMaterial({
+					color: 16711680,
+					transparent: true,
+					opacity: .2
+				}));
+				eyeGlow.position.copy(eye.position);
+				this.group.add(eyeGlow);
+			}
+			const capeMat = new MeshStandardMaterial({
+				color: 4849664,
+				emissive: 3342336,
+				emissiveIntensity: .2,
+				side: 2
+			});
+			const cape = new Mesh(new PlaneGeometry(s * 2, s * 2.5), capeMat);
+			cape.position.set(0, s * 1.2 + .5, -s * .6);
+			cape.rotation.x = .15;
+			this.group.add(cape);
+			for (const side of [-1, 1]) {
+				const arm = new Mesh(new CylinderGeometry(s * .2, s * .15, s * 1.4, 6), darkMat);
+				arm.position.set(side * s * 1, s * .8 + .5, 0);
+				arm.rotation.z = side * .3;
+				arm.castShadow = true;
+				this.group.add(arm);
+				const claw = new Mesh(new ConeGeometry(s * .2, s * .4, 4), new MeshStandardMaterial({
+					color: 1703936,
+					roughness: .4
+				}));
+				claw.position.set(side * s * 1.2, s * .1 + .5, 0);
+				claw.rotation.x = Math.PI;
+				this.group.add(claw);
+			}
+			const auraMat = new MeshBasicMaterial({
+				color: 16711680,
+				transparent: true,
+				opacity: .08
+			});
+			const aura = new Mesh(new SphereGeometry(s * 1.6, 12, 12), auraMat);
+			aura.position.y = s + .5;
+			this.group.add(aura);
 		}
 	}
 	update(delta, path, pathLength) {
@@ -21222,8 +21782,21 @@ var Game = class {
 		this.animate = () => {
 			requestAnimationFrame(this.animate);
 			const delta = Math.min(this.clock.getDelta() * 1e3, 50);
-			if (this.state === "menu" && this.menuGroup) this.menuGroup.rotation.y += delta * 3e-4;
-			else if (this.state === "playing") this.updateGame(delta);
+			if (this.state === "menu" && this.menuGroup) {
+				this.menuGroup.rotation.y += delta * 3e-4;
+				this.menuGroup.traverse((obj) => {
+					if (obj instanceof Points && obj.userData.isSnow) {
+						const pos = obj.geometry.attributes.position;
+						for (let i = 0; i < pos.count; i++) {
+							let y = pos.getY(i) - delta * .01;
+							if (y < 0) y = 180;
+							pos.setY(i, y);
+							pos.setX(i, pos.getX(i) + Math.sin(y * .08 + i) * .02);
+						}
+						pos.needsUpdate = true;
+					}
+				});
+			} else if (this.state === "playing") this.updateGame(delta);
 			this.renderer.render(this.scene, this.camera);
 		};
 		this.container = container;
@@ -21274,31 +21847,104 @@ var Game = class {
 		this.clearScene();
 		this.setupLights();
 		this.menuGroup = new Group();
-		const ground = new Mesh(new CircleGeometry(MAP_RADIUS + 10, 48), new MeshStandardMaterial({
-			color: 1714746,
-			roughness: .8
+		const ground = new Mesh(new CircleGeometry(MAP_RADIUS + 20, 64), new MeshStandardMaterial({
+			color: 858922,
+			roughness: .85
 		}));
 		ground.rotation.x = -Math.PI / 2;
 		ground.receiveShadow = true;
 		this.menuGroup.add(ground);
-		const tubeGeo = new TubeGeometry(new CatmullRomCurve3(generateSpiralPath()), 200, 2, 8, false);
+		for (let i = 0; i < 5; i++) {
+			const r = new Mesh(new RingGeometry(20 + i * 22, 22 + i * 22, 48), new MeshBasicMaterial({
+				color: 2733814,
+				transparent: true,
+				opacity: .06,
+				side: 2
+			}));
+			r.rotation.x = -Math.PI / 2;
+			r.position.y = .1;
+			this.menuGroup.add(r);
+		}
+		const curve = new CatmullRomCurve3(generateSpiralPath());
+		const tubeGeo = new TubeGeometry(curve, 250, 2.5, 8, false);
 		const tubeMat = new MeshStandardMaterial({
 			color: 2733814,
 			emissive: 161725,
-			emissiveIntensity: .3,
+			emissiveIntensity: .4,
 			transparent: true,
 			opacity: .7
 		});
 		this.menuGroup.add(new Mesh(tubeGeo, tubeMat));
+		const glow = new Mesh(new TubeGeometry(curve, 250, 3.5, 8, false), new MeshBasicMaterial({
+			color: 5227511,
+			transparent: true,
+			opacity: .08
+		}));
+		this.menuGroup.add(glow);
+		const basePlat = new Mesh(new CylinderGeometry(12, 14, 2, 12), new MeshStandardMaterial({
+			color: 2503224,
+			roughness: .5,
+			metalness: .3
+		}));
+		basePlat.position.y = 1;
+		this.menuGroup.add(basePlat);
 		const baseMat = new MeshStandardMaterial({
 			color: 5227511,
 			emissive: 2733814,
-			emissiveIntensity: .5
+			emissiveIntensity: .6,
+			metalness: .4
 		});
-		const baseMesh = new Mesh(new CylinderGeometry(8, 10, 6, 12), baseMat);
-		baseMesh.position.y = 3;
+		const baseMesh = new Mesh(new CylinderGeometry(7, 9, 7, 8), baseMat);
+		baseMesh.position.y = 5.5;
 		baseMesh.castShadow = true;
 		this.menuGroup.add(baseMesh);
+		const spireMat = new MeshStandardMaterial({
+			color: 11789820,
+			emissive: 5227511,
+			emissiveIntensity: .5,
+			transparent: true,
+			opacity: .8,
+			roughness: .05
+		});
+		const spire = new Mesh(new OctahedronGeometry(3, 0), spireMat);
+		spire.position.y = 13;
+		spire.scale.y = 2;
+		this.menuGroup.add(spire);
+		const crystMat = new MeshStandardMaterial({
+			color: 11725810,
+			emissive: 5099745,
+			emissiveIntensity: .3,
+			transparent: true,
+			opacity: .7,
+			roughness: .05
+		});
+		for (let i = 0; i < 12; i++) {
+			const a = i / 12 * Math.PI * 2;
+			const r = MAP_RADIUS + 5;
+			const h = 4 + Math.random() * 6;
+			const c = new Mesh(new OctahedronGeometry(1 + Math.random(), 0), crystMat.clone());
+			c.position.set(Math.cos(a) * r, h / 2, Math.sin(a) * r);
+			c.scale.y = h / 2;
+			c.rotation.y = Math.random() * Math.PI;
+			this.menuGroup.add(c);
+		}
+		const snowCount = 400;
+		const snowGeo = new BufferGeometry();
+		const snowPos = new Float32Array(snowCount * 3);
+		for (let i = 0; i < snowCount; i++) {
+			snowPos[i * 3] = (Math.random() - .5) * 400;
+			snowPos[i * 3 + 1] = Math.random() * 180;
+			snowPos[i * 3 + 2] = (Math.random() - .5) * 400;
+		}
+		snowGeo.setAttribute("position", new BufferAttribute(snowPos, 3));
+		const menuSnow = new Points(snowGeo, new PointsMaterial({
+			color: 16777215,
+			size: 1.2,
+			transparent: true,
+			opacity: .5
+		}));
+		menuSnow.userData.isSnow = true;
+		this.menuGroup.add(menuSnow);
 		this.scene.add(this.menuGroup);
 		this.ui.showMenu();
 	}
@@ -21327,10 +21973,10 @@ var Game = class {
 		playClick();
 	}
 	setupLights() {
-		const ambient = new AmbientLight(4491468, .5);
+		const ambient = new AmbientLight(3829413, .6);
 		this.scene.add(ambient);
-		const dir = new DirectionalLight(16772829, 1.2);
-		dir.position.set(80, 200, 60);
+		const dir = new DirectionalLight(13166335, 1.3);
+		dir.position.set(80, 220, 60);
 		dir.castShadow = true;
 		dir.shadow.mapSize.set(1024, 1024);
 		dir.shadow.camera.left = -160;
@@ -21340,98 +21986,284 @@ var Game = class {
 		dir.shadow.camera.near = 50;
 		dir.shadow.camera.far = 500;
 		this.scene.add(dir);
-		const point = new PointLight(5227511, 1, 200);
-		point.position.set(0, 20, 0);
-		this.scene.add(point);
+		const centerLight = new PointLight(5227511, 1.5, 180);
+		centerLight.position.set(0, 25, 0);
+		this.scene.add(centerLight);
+		const auroraGreen = new PointLight(58998, .4, 300);
+		auroraGreen.position.set(-80, 120, -60);
+		this.scene.add(auroraGreen);
+		const auroraPurple = new PointLight(11766015, .35, 300);
+		auroraPurple.position.set(60, 110, -80);
+		this.scene.add(auroraPurple);
+		const rimLight = new PointLight(16747109, .5, 200);
+		rimLight.position.set(MAP_RADIUS, 15, 0);
+		this.scene.add(rimLight);
 	}
 	buildMap() {
-		const ground = new Mesh(new CircleGeometry(MAP_RADIUS + 15, 48), new MeshStandardMaterial({
-			color: 1714746,
+		const outerRing = new Mesh(new RingGeometry(MAP_RADIUS + 5, MAP_RADIUS + 25, 64), new MeshStandardMaterial({
+			color: 396826,
 			roughness: .9
+		}));
+		outerRing.rotation.x = -Math.PI / 2;
+		outerRing.position.y = -.1;
+		this.scene.add(outerRing);
+		const ground = new Mesh(new CircleGeometry(MAP_RADIUS + 5, 64), new MeshStandardMaterial({
+			color: 1385786,
+			roughness: .85,
+			metalness: .05
 		}));
 		ground.rotation.x = -Math.PI / 2;
 		ground.receiveShadow = true;
 		this.scene.add(ground);
-		const ring = new Mesh(new RingGeometry(MAP_RADIUS + 5, MAP_RADIUS + 15, 48), new MeshStandardMaterial({
-			color: 858928,
-			roughness: .8
-		}));
-		ring.rotation.x = -Math.PI / 2;
-		ring.position.y = .1;
-		this.scene.add(ring);
-		const curve = new CatmullRomCurve3(generateSpiralPath());
-		const tube = new Mesh(new TubeGeometry(curve, 200, 2.5, 8, false), new MeshStandardMaterial({
-			color: 3622735,
-			emissive: 2503224,
-			emissiveIntensity: .2,
-			roughness: .7
+		const ringColors = [
+			1716304,
+			1980504,
+			2244194,
+			1716304
+		];
+		const ringRadii = [
+			110,
+			85,
+			55,
+			30
+		];
+		for (let i = 0; i < ringColors.length; i++) {
+			const r = new Mesh(new RingGeometry(ringRadii[i] - 2, ringRadii[i], 64), new MeshStandardMaterial({
+				color: ringColors[i],
+				emissive: 2733814,
+				emissiveIntensity: .05,
+				roughness: .7
+			}));
+			r.rotation.x = -Math.PI / 2;
+			r.position.y = .05 + i * .02;
+			this.scene.add(r);
+		}
+		const pathPts = generateSpiralPath();
+		const curve = new CatmullRomCurve3(pathPts);
+		const tube = new Mesh(new TubeGeometry(curve, 250, 2.8, 8, false), new MeshStandardMaterial({
+			color: 2899536,
+			emissive: 1713022,
+			emissiveIntensity: .15,
+			roughness: .6,
+			metalness: .1
 		}));
 		tube.receiveShadow = true;
 		this.scene.add(tube);
-		const glowTube = new Mesh(new TubeGeometry(curve, 200, 3.2, 8, false), new MeshBasicMaterial({
+		const glowTube = new Mesh(new TubeGeometry(curve, 250, 3.8, 8, false), new MeshBasicMaterial({
 			color: 2733814,
+			transparent: true,
+			opacity: .06
+		}));
+		this.scene.add(glowTube);
+		const innerGlow = new Mesh(new TubeGeometry(curve, 250, 1.5, 8, false), new MeshBasicMaterial({
+			color: 8445674,
 			transparent: true,
 			opacity: .08
 		}));
-		this.scene.add(glowTube);
+		innerGlow.position.y = .3;
+		this.scene.add(innerGlow);
+		const runeColors = [
+			2733814,
+			5227511,
+			58879,
+			1638399
+		];
+		for (let i = 0; i < pathPts.length; i += 25) {
+			const p = pathPts[i];
+			const runeMat = new MeshBasicMaterial({
+				color: runeColors[i % runeColors.length],
+				transparent: true,
+				opacity: .2
+			});
+			const rune = new Mesh(new RingGeometry(.8, 1.5, 6), runeMat);
+			rune.position.set(p.x, .4, p.z);
+			rune.rotation.x = -Math.PI / 2;
+			rune.userData.isRune = true;
+			this.scene.add(rune);
+		}
+		const basePlatMat = new MeshStandardMaterial({
+			color: 2503224,
+			roughness: .5,
+			metalness: .3
+		});
+		const basePlat = new Mesh(new CylinderGeometry(12, 14, 2, 12), basePlatMat);
+		basePlat.position.y = 1;
+		basePlat.receiveShadow = true;
+		this.scene.add(basePlat);
 		const baseMat = new MeshStandardMaterial({
 			color: 5227511,
 			emissive: 166097,
-			emissiveIntensity: .6,
-			metalness: .4
+			emissiveIntensity: .7,
+			metalness: .5,
+			roughness: .2
 		});
-		this.baseMesh = new Mesh(new CylinderGeometry(8, 10, 6, 12), baseMat);
-		this.baseMesh.position.y = 3;
+		this.baseMesh = new Mesh(new CylinderGeometry(7, 9, 7, 8), baseMat);
+		this.baseMesh.position.y = 5.5;
 		this.baseMesh.castShadow = true;
 		this.scene.add(this.baseMesh);
-		const baseGlow = new Mesh(new CircleGeometry(14, 24), new MeshBasicMaterial({
+		const topRing = new Mesh(new TorusGeometry(7.5, .5, 6, 16), new MeshStandardMaterial({
+			color: 8445674,
+			emissive: 5099745,
+			emissiveIntensity: .4
+		}));
+		topRing.position.y = 9;
+		topRing.rotation.x = Math.PI / 2;
+		this.scene.add(topRing);
+		const spireMat = new MeshStandardMaterial({
+			color: 11789820,
+			emissive: 5227511,
+			emissiveIntensity: .6,
+			transparent: true,
+			opacity: .8,
+			roughness: .05
+		});
+		const spire = new Mesh(new OctahedronGeometry(3, 0), spireMat);
+		spire.position.y = 13;
+		spire.scale.y = 2;
+		this.scene.add(spire);
+		const beacon = new Mesh(new SphereGeometry(1.5, 8, 8), new MeshBasicMaterial({
 			color: 5227511,
 			transparent: true,
-			opacity: .15
+			opacity: .4
 		}));
-		baseGlow.rotation.x = -Math.PI / 2;
-		baseGlow.position.y = .2;
-		this.scene.add(baseGlow);
-		this.towerSlots = [];
-		const slotGeo = new CylinderGeometry(3.8, 4, .6, 8);
-		const slotMat = new MeshStandardMaterial({
-			color: 2503224,
-			emissive: 3622735,
-			emissiveIntensity: .1,
-			roughness: .7
+		beacon.position.y = 15;
+		this.scene.add(beacon);
+		for (let i = 0; i < 3; i++) {
+			const glow = new Mesh(new RingGeometry(10 + i * 4, 11 + i * 4, 32), new MeshBasicMaterial({
+				color: 5227511,
+				transparent: true,
+				opacity: .12 - i * .03,
+				side: 2
+			}));
+			glow.rotation.x = -Math.PI / 2;
+			glow.position.y = .15 + i * .05;
+			this.scene.add(glow);
+		}
+		const crystalMat = new MeshStandardMaterial({
+			color: 11725810,
+			emissive: 5099745,
+			emissiveIntensity: .3,
+			transparent: true,
+			opacity: .7,
+			roughness: .05,
+			metalness: .1
 		});
+		for (let i = 0; i < 16; i++) {
+			const a = i / 16 * Math.PI * 2 + Math.random() * .2;
+			const r = MAP_RADIUS + 3 + Math.random() * 5;
+			const h = 4 + Math.random() * 8;
+			const crystal = new Mesh(new OctahedronGeometry(1 + Math.random(), 0), crystalMat.clone());
+			crystal.position.set(Math.cos(a) * r, h / 2, Math.sin(a) * r);
+			crystal.scale.y = h / 2;
+			crystal.rotation.y = Math.random() * Math.PI;
+			crystal.rotation.z = (Math.random() - .5) * .2;
+			crystal.castShadow = true;
+			this.scene.add(crystal);
+		}
+		this.towerSlots = [];
 		for (const ring of SLOT_RINGS) for (let i = 0; i < ring.count; i++) {
 			const angle = i / ring.count * Math.PI * 2 + ring.r * .01;
 			const x = ring.r * Math.cos(angle);
 			const z = ring.r * Math.sin(angle);
-			const mesh = new Mesh(slotGeo.clone(), slotMat.clone());
-			mesh.position.set(x, .3, z);
-			mesh.receiveShadow = true;
-			this.scene.add(mesh);
+			const slotBase = new Mesh(new CylinderGeometry(4, 4.5, .8, 8), new MeshStandardMaterial({
+				color: 1981023,
+				emissive: 2503224,
+				emissiveIntensity: .1,
+				roughness: .6,
+				metalness: .2
+			}));
+			slotBase.position.set(x, .4, z);
+			slotBase.receiveShadow = true;
+			this.scene.add(slotBase);
+			const slotRing = new Mesh(new RingGeometry(3.5, 4.2, 8), new MeshBasicMaterial({
+				color: 3622735,
+				transparent: true,
+				opacity: .3,
+				side: 2
+			}));
+			slotRing.position.set(x, .85, z);
+			slotRing.rotation.x = -Math.PI / 2;
+			this.scene.add(slotRing);
 			this.towerSlots.push({
 				position: new Vector3(x, 0, z),
-				mesh,
+				mesh: slotBase,
 				occupied: false,
 				tower: null
 			});
 		}
-		const snowCount = 300;
+		const auroraCount = 200;
+		const auroraGeo = new BufferGeometry();
+		const auroraPos = new Float32Array(auroraCount * 3);
+		const auroraColors = new Float32Array(auroraCount * 3);
+		for (let i = 0; i < auroraCount; i++) {
+			auroraPos[i * 3] = (Math.random() - .5) * 400;
+			auroraPos[i * 3 + 1] = 100 + Math.random() * 100;
+			auroraPos[i * 3 + 2] = (Math.random() - .5) * 400;
+			const pick = Math.random();
+			if (pick < .4) {
+				auroraColors[i * 3] = 0;
+				auroraColors[i * 3 + 1] = .9;
+				auroraColors[i * 3 + 2] = .5;
+			} else if (pick < .7) {
+				auroraColors[i * 3] = .5;
+				auroraColors[i * 3 + 1] = .3;
+				auroraColors[i * 3 + 2] = 1;
+			} else {
+				auroraColors[i * 3] = 0;
+				auroraColors[i * 3 + 1] = .8;
+				auroraColors[i * 3 + 2] = .9;
+			}
+		}
+		auroraGeo.setAttribute("position", new BufferAttribute(auroraPos, 3));
+		auroraGeo.setAttribute("color", new BufferAttribute(auroraColors, 3));
+		const aurora = new Points(auroraGeo, new PointsMaterial({
+			size: 3,
+			transparent: true,
+			opacity: .4,
+			vertexColors: true
+		}));
+		aurora.userData.isAurora = true;
+		this.scene.add(aurora);
+		const snowCount = 500;
 		const snowGeo = new BufferGeometry();
 		const snowPos = new Float32Array(snowCount * 3);
 		for (let i = 0; i < snowCount; i++) {
-			snowPos[i * 3] = (Math.random() - .5) * 350;
-			snowPos[i * 3 + 1] = Math.random() * 150;
-			snowPos[i * 3 + 2] = (Math.random() - .5) * 350;
+			snowPos[i * 3] = (Math.random() - .5) * 400;
+			snowPos[i * 3 + 1] = Math.random() * 180;
+			snowPos[i * 3 + 2] = (Math.random() - .5) * 400;
 		}
 		snowGeo.setAttribute("position", new BufferAttribute(snowPos, 3));
 		const snow = new Points(snowGeo, new PointsMaterial({
 			color: 16777215,
-			size: 1,
+			size: 1.2,
 			transparent: true,
-			opacity: .5
+			opacity: .6
 		}));
 		snow.userData.isSnow = true;
 		this.scene.add(snow);
+		const portalAngle = 0;
+		const portalX = (MAP_RADIUS + 2) * Math.cos(portalAngle);
+		const portalZ = (MAP_RADIUS + 2) * Math.sin(portalAngle);
+		const portalMat = new MeshStandardMaterial({
+			color: 16739904,
+			emissive: 16727296,
+			emissiveIntensity: .6,
+			transparent: true,
+			opacity: .8
+		});
+		const portal = new Mesh(new TorusGeometry(5, .8, 8, 16), portalMat);
+		portal.position.set(portalX, 5, portalZ);
+		portal.rotation.y = Math.PI / 2;
+		this.scene.add(portal);
+		const portalGlow = new Mesh(new CircleGeometry(4, 16), new MeshBasicMaterial({
+			color: 16739904,
+			transparent: true,
+			opacity: .15,
+			side: 2
+		}));
+		portalGlow.position.set(portalX, 5, portalZ);
+		portalGlow.rotation.y = Math.PI / 2;
+		this.scene.add(portalGlow);
 	}
 	clearScene() {
 		while (this.scene.children.length) {
@@ -21629,22 +22461,161 @@ var Game = class {
 		tower.skillCooldown = skill.cooldown;
 		playSkill(skill.type);
 		const pos = tower.group.position;
+		const scene = this.scene;
+		const animateEffect = (obj, duration, onFrame) => {
+			const start = performance.now();
+			const tick = () => {
+				const t = (performance.now() - start) / duration;
+				if (t >= 1) {
+					scene.remove(obj);
+					obj.traverse((c) => {
+						if (c instanceof Mesh) {
+							c.geometry.dispose();
+							c.material.dispose();
+						}
+					});
+					return;
+				}
+				onFrame(t);
+				requestAnimationFrame(tick);
+			};
+			requestAnimationFrame(tick);
+		};
 		if (skill.type === "volley") {
 			for (const m of this.monsters) if (m.hp > 0 && m.group.position.distanceTo(pos) < skill.radius) m.takeDamage(skill.damage);
+			const volleyGroup = new Group();
+			for (let i = 0; i < 30; i++) {
+				const shard = new Mesh(new ConeGeometry(.3, 2, 4), new MeshBasicMaterial({
+					color: 8445674,
+					transparent: true,
+					opacity: .8
+				}));
+				const a = Math.random() * Math.PI * 2;
+				const r = Math.random() * skill.radius;
+				shard.position.set(pos.x + Math.cos(a) * r, 50 + Math.random() * 20, pos.z + Math.sin(a) * r);
+				shard.rotation.x = Math.PI;
+				volleyGroup.add(shard);
+			}
+			scene.add(volleyGroup);
+			animateEffect(volleyGroup, 800, (t) => {
+				volleyGroup.children.forEach((c, i) => {
+					c.position.y -= 1.5;
+					c.material = new MeshBasicMaterial({
+						color: 8445674,
+						transparent: true,
+						opacity: .8 * (1 - t)
+					});
+				});
+			});
+			const impactRing = new Mesh(new RingGeometry(0, skill.radius, 32), new MeshBasicMaterial({
+				color: 2733814,
+				transparent: true,
+				opacity: .25,
+				side: 2
+			}));
+			impactRing.position.set(pos.x, .5, pos.z);
+			impactRing.rotation.x = -Math.PI / 2;
+			scene.add(impactRing);
+			animateEffect(impactRing, 600, (t) => {
+				impactRing.material.opacity = .25 * (1 - t);
+			});
 		} else if (skill.type === "earthquake") {
 			for (const m of this.monsters) if (m.hp > 0 && m.group.position.distanceTo(pos) < skill.radius) {
 				m.takeDamage(skill.damage);
 				m.slowFactor = 0;
 				m.slowTimer = (skill.duration || 1.5) * 1e3;
 			}
-			this.camera.position.y += 5;
-			setTimeout(() => {
-				this.camera.position.y -= 5;
-			}, 200);
+			const shockGroup = new Group();
+			for (let i = 0; i < 3; i++) {
+				const ring = new Mesh(new TorusGeometry(5, 1.5 - i * .3, 6, 32), new MeshBasicMaterial({
+					color: [
+						13840175,
+						16733986,
+						16750592
+					][i],
+					transparent: true,
+					opacity: .4
+				}));
+				ring.position.set(pos.x, 1 + i * .3, pos.z);
+				ring.rotation.x = Math.PI / 2;
+				shockGroup.add(ring);
+			}
+			scene.add(shockGroup);
+			animateEffect(shockGroup, 1e3, (t) => {
+				shockGroup.children.forEach((c, i) => {
+					const ring = c;
+					const scale = 1 + t * (skill.radius / 5);
+					ring.scale.set(scale, scale, 1);
+					ring.material.opacity = .4 * (1 - t);
+				});
+			});
+			for (let i = 0; i < 8; i++) {
+				const a = i / 8 * Math.PI * 2 + Math.random() * .3;
+				const r = 10 + Math.random() * (skill.radius - 15);
+				const pillar = new Mesh(new BoxGeometry(2 + Math.random() * 2, 8 + Math.random() * 6, 2 + Math.random() * 2), new MeshStandardMaterial({
+					color: 6111287,
+					roughness: .8
+				}));
+				pillar.position.set(pos.x + Math.cos(a) * r, -5, pos.z + Math.sin(a) * r);
+				pillar.rotation.y = Math.random() * Math.PI;
+				scene.add(pillar);
+				animateEffect(pillar, 1200, (t) => {
+					if (t < .3) pillar.position.y = -5 + t / .3 * 5;
+					else pillar.position.y = 5 * (1 - (t - .3) / .7) - 5;
+					pillar.material.opacity = 1 - t;
+				});
+			}
+			const origY = this.camera.position.y;
+			let shakeCount = 0;
+			const shakeInterval = setInterval(() => {
+				this.camera.position.y = origY + (Math.random() - .5) * 6;
+				shakeCount++;
+				if (shakeCount > 10) {
+					clearInterval(shakeInterval);
+					this.camera.position.y = origY;
+				}
+			}, 50);
 		} else if (skill.type === "meteor") this.monsters.filter((m) => m.hp > 0).slice(0, 5).forEach((m, i) => {
 			setTimeout(() => {
 				m.takeDamage(skill.damage);
 				playExplosion();
+				const tornado = new Group();
+				for (let j = 0; j < 6; j++) {
+					const ring = new Mesh(new TorusGeometry(2 + j * .5, .4, 6, 12), new MeshBasicMaterial({
+						color: j < 3 ? 16727296 : 16755456,
+						transparent: true,
+						opacity: .6
+					}));
+					ring.position.y = j * 2;
+					ring.rotation.x = Math.PI / 2;
+					tornado.add(ring);
+				}
+				tornado.position.copy(m.group.position);
+				scene.add(tornado);
+				animateEffect(tornado, 700, (t) => {
+					tornado.rotation.y += .2;
+					tornado.scale.setScalar(1 + t);
+					tornado.children.forEach((c) => {
+						c.material = new MeshBasicMaterial({
+							color: 16739904,
+							transparent: true,
+							opacity: .6 * (1 - t)
+						});
+					});
+				});
+				const scorch = new Mesh(new CircleGeometry(4, 16), new MeshBasicMaterial({
+					color: 16727296,
+					transparent: true,
+					opacity: .3,
+					side: 2
+				}));
+				scorch.position.copy(m.group.position).setY(.3);
+				scorch.rotation.x = -Math.PI / 2;
+				scene.add(scorch);
+				animateEffect(scorch, 1500, (t) => {
+					scorch.material.opacity = .3 * (1 - t);
+					scorch.scale.setScalar(1 + t * .5);
+				});
 			}, i * 300);
 		});
 		else if (skill.type === "blizzard") {
@@ -21653,32 +22624,125 @@ var Game = class {
 				m.slowFactor = 0;
 				m.slowTimer = (skill.duration || 3) * 1e3;
 			}
+			const cloudGroup = new Group();
+			const cloudMat = new MeshBasicMaterial({
+				color: 11789820,
+				transparent: true,
+				opacity: .2,
+				side: 2
+			});
+			const cloud = new Mesh(new SphereGeometry(20, 16, 12), cloudMat);
+			cloud.scale.y = .3;
+			cloud.position.y = 5;
+			cloudGroup.add(cloud);
+			for (let i = 0; i < 40; i++) {
+				const crystal = new Mesh(new OctahedronGeometry(.5 + Math.random() * .5, 0), new MeshBasicMaterial({
+					color: 8445674,
+					transparent: true,
+					opacity: .6
+				}));
+				const a = Math.random() * Math.PI * 2;
+				const r = Math.random() * 80;
+				crystal.position.set(Math.cos(a) * r, 2 + Math.random() * 8, Math.sin(a) * r);
+				crystal.userData.angle = a;
+				crystal.userData.radius = r;
+				cloudGroup.add(crystal);
+			}
+			const frost = new Mesh(new RingGeometry(0, 120, 48), new MeshBasicMaterial({
+				color: 14743546,
+				transparent: true,
+				opacity: .15,
+				side: 2
+			}));
+			frost.rotation.x = -Math.PI / 2;
+			frost.position.y = .3;
+			cloudGroup.add(frost);
+			scene.add(cloudGroup);
+			animateEffect(cloudGroup, 2500, (t) => {
+				cloud.scale.setScalar(1 + t * 5);
+				cloud.scale.y = .3;
+				cloud.material.opacity = .2 * (1 - t);
+				cloudGroup.children.forEach((c, i) => {
+					if (i === 0 || i === cloudGroup.children.length - 1) return;
+					c.rotation.y += .05;
+					c.rotation.x += .03;
+					c.position.y += (Math.random() - .3) * .1;
+					c.material.opacity = .6 * (1 - t);
+				});
+				frost.material.opacity = .15 * (1 - t);
+			});
 		} else if (skill.type === "chain_lightning") {
 			for (const m of this.monsters) if (m.hp > 0) m.takeDamage(skill.damage);
-		}
-		const flashGeo = new SphereGeometry(skill.radius === 999 ? 150 : skill.radius, 16, 16);
-		const flashMat = new MeshBasicMaterial({
-			color: tower.config.color,
-			transparent: true,
-			opacity: .3
-		});
-		const flash = new Mesh(flashGeo, flashMat);
-		flash.position.copy(skill.radius === 999 ? new Vector3(0, 5, 0) : pos.clone().setY(5));
-		this.scene.add(flash);
-		const startTime = performance.now();
-		const animFlash = () => {
-			const elapsed = performance.now() - startTime;
-			if (elapsed > 500) {
-				this.scene.remove(flash);
-				flash.geometry.dispose();
-				flashMat.dispose();
-				return;
+			const novaGroup = new Group();
+			for (let i = 0; i < 4; i++) {
+				const ring = new Mesh(new TorusGeometry(8, .6 - i * .1, 6, 32), new MeshBasicMaterial({
+					color: [
+						16635957,
+						16772696,
+						16773494,
+						16635957
+					][i],
+					transparent: true,
+					opacity: .5
+				}));
+				ring.position.y = 3 + i * 1.5;
+				ring.rotation.x = Math.PI / 2;
+				novaGroup.add(ring);
 			}
-			flashMat.opacity = .3 * (1 - elapsed / 500);
-			flash.scale.setScalar(1 + elapsed / 500);
-			requestAnimationFrame(animFlash);
-		};
-		requestAnimationFrame(animFlash);
+			scene.add(novaGroup);
+			animateEffect(novaGroup, 1200, (t) => {
+				novaGroup.children.forEach((c, i) => {
+					const scale = 1 + t * 15;
+					c.scale.set(scale, scale, 1);
+					c.material = new MeshBasicMaterial({
+						color: 16635957,
+						transparent: true,
+						opacity: .5 * (1 - t)
+					});
+				});
+			});
+			this.monsters.filter((m) => m.hp > 0).slice(0, 10).forEach((m) => {
+				const boltGeo = new BufferGeometry();
+				const points = [];
+				const start = pos.clone().setY(10);
+				const end = m.group.position.clone().setY(3);
+				const mid = start.clone().lerp(end, .5);
+				mid.x += (Math.random() - .5) * 15;
+				mid.y += 10 + Math.random() * 10;
+				mid.z += (Math.random() - .5) * 15;
+				for (let t = 0; t <= 1; t += .1) {
+					const p = new Vector3();
+					p.lerpVectors(start, mid, t * 2 < 1 ? t * 2 : 1);
+					if (t > .5) p.lerpVectors(mid, end, (t - .5) * 2);
+					p.x += (Math.random() - .5) * 3;
+					p.z += (Math.random() - .5) * 3;
+					points.push(p.x, p.y, p.z);
+				}
+				boltGeo.setAttribute("position", new Float32BufferAttribute(points, 3));
+				const bolt = new Line(boltGeo, new LineBasicMaterial({
+					color: 16635957,
+					linewidth: 2
+				}));
+				scene.add(bolt);
+				const bStart = performance.now();
+				const boltAnim = () => {
+					const bt = (performance.now() - bStart) / 400;
+					if (bt >= 1) {
+						scene.remove(bolt);
+						boltGeo.dispose();
+						return;
+					}
+					bolt.material.opacity = 1 - bt;
+					requestAnimationFrame(boltAnim);
+				};
+				requestAnimationFrame(boltAnim);
+			});
+			const origBg = scene.background.clone();
+			scene.background = new Color(3355426);
+			setTimeout(() => {
+				scene.background = origBg;
+			}, 100);
+		}
 		this.ui.showAnnouncement(`⚡ ${skill.nameKo}!`, tower.config.color);
 	}
 	startNextWave() {
@@ -21797,20 +22861,35 @@ var Game = class {
 				return;
 			}
 		}
+		const now = performance.now();
 		this.scene.traverse((obj) => {
 			if (obj instanceof Points && obj.userData.isSnow) {
 				const pos = obj.geometry.attributes.position;
 				for (let i = 0; i < pos.count; i++) {
-					let y = pos.getY(i) - dt * .01;
-					if (y < 0) y = 150;
+					let y = pos.getY(i) - dt * .012;
+					if (y < 0) y = 180;
 					pos.setY(i, y);
-					pos.setX(i, pos.getX(i) + Math.sin(y * .1) * .02);
+					pos.setX(i, pos.getX(i) + Math.sin(y * .08 + i) * .025);
 				}
 				pos.needsUpdate = true;
 			}
+			if (obj instanceof Points && obj.userData.isAurora) {
+				const pos = obj.geometry.attributes.position;
+				for (let i = 0; i < pos.count; i++) {
+					pos.setY(i, pos.getY(i) + Math.sin(now * 5e-4 + i * .3) * .05);
+					pos.setX(i, pos.getX(i) + Math.cos(now * 3e-4 + i * .5) * .02);
+				}
+				pos.needsUpdate = true;
+				obj.rotation.y += dt * 5e-5;
+			}
+			if (obj instanceof Mesh && obj.userData.isRune) {
+				const mat = obj.material;
+				mat.opacity = .15 + Math.sin(now * .003 + obj.position.x * .1) * .1;
+				obj.rotation.z += dt * .001;
+			}
 		});
 		if (this.baseMesh) {
-			const pulse = 1 + Math.sin(performance.now() * .002) * .03;
+			const pulse = 1 + Math.sin(now * .002) * .04;
 			this.baseMesh.scale.set(pulse, 1, pulse);
 		}
 		this.updateUI();
