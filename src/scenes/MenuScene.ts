@@ -54,21 +54,24 @@ export class MenuScene extends Phaser.Scene {
       },
     });
 
+    // Title section - centered in upper area
+    const titleY = height * 0.12;
+
     // Title glow
-    this.add.text(width / 2, 55, '\u{1F427} \uD3AD\uADC4 \uB300\uBAA8\uD5D8 \u{1F427}', {
-      fontSize: '36px', fontFamily: 'Arial, sans-serif',
+    this.add.text(width / 2, titleY, '\u{1F427} \uD3AD\uADC4 \uB300\uBAA8\uD5D8 \u{1F427}', {
+      fontSize: '30px', fontFamily: 'Arial, sans-serif',
       color: '#81d4fa', fontStyle: 'bold',
     }).setOrigin(0.5).setAlpha(0.15).setScale(1.05);
 
     // Title shadow
-    this.add.text(width / 2 + 2, 57, '\u{1F427} \uD3AD\uADC4 \uB300\uBAA8\uD5D8 \u{1F427}', {
-      fontSize: '36px', fontFamily: 'Arial, sans-serif',
+    this.add.text(width / 2 + 2, titleY + 2, '\u{1F427} \uD3AD\uADC4 \uB300\uBAA8\uD5D8 \u{1F427}', {
+      fontSize: '30px', fontFamily: 'Arial, sans-serif',
       color: '#000000', fontStyle: 'bold',
     }).setOrigin(0.5).setAlpha(0.4);
 
     // Title main
-    const title = this.add.text(width / 2, 55, '\u{1F427} \uD3AD\uADC4 \uB300\uBAA8\uD5D8 \u{1F427}', {
-      fontSize: '36px', fontFamily: 'Arial, sans-serif',
+    const title = this.add.text(width / 2, titleY, '\u{1F427} \uD3AD\uADC4 \uB300\uBAA8\uD5D8 \u{1F427}', {
+      fontSize: '30px', fontFamily: 'Arial, sans-serif',
       color: '#e1f5fe', fontStyle: 'bold',
       stroke: '#0277bd', strokeThickness: 3,
     }).setOrigin(0.5);
@@ -78,24 +81,25 @@ export class MenuScene extends Phaser.Scene {
     });
 
     // Subtitle
-    const subY = 95;
+    const subY = titleY + 42;
     const lineG = this.add.graphics();
     lineG.lineStyle(1, 0x29b6f6, 0.3);
-    lineG.beginPath(); lineG.moveTo(width / 2 - 130, subY); lineG.lineTo(width / 2 - 55, subY); lineG.strokePath();
-    lineG.beginPath(); lineG.moveTo(width / 2 + 55, subY); lineG.lineTo(width / 2 + 130, subY); lineG.strokePath();
+    lineG.beginPath(); lineG.moveTo(width / 2 - 120, subY); lineG.lineTo(width / 2 - 50, subY); lineG.strokePath();
+    lineG.beginPath(); lineG.moveTo(width / 2 + 50, subY); lineG.lineTo(width / 2 + 120, subY); lineG.strokePath();
 
     this.add.text(width / 2, subY, '\u2744  \uAF41\uAF41 \uBC29\uC5B4\uC804  \u2744', {
       fontSize: '14px', fontFamily: 'Arial, sans-serif', color: '#4fc3f7',
     }).setOrigin(0.5);
 
     // Map selection
-    this.add.text(width / 2, 132, '\u25C6  \uB9F5 \uC120\uD0DD  \u25C6', {
+    const mapHeaderY = height * 0.3;
+    this.add.text(width / 2, mapHeaderY, '\u25C6  \uB9F5 \uC120\uD0DD  \u25C6', {
       fontSize: '16px', fontFamily: 'Arial, sans-serif', color: '#b0bec5', fontStyle: 'bold',
     }).setOrigin(0.5);
 
     const mapButtons: Phaser.GameObjects.Container[] = [];
-    const mapStartY = 165;
-    const mapSpacing = 60;
+    const mapStartY = mapHeaderY + 40;
+    const mapSpacing = 70;
     const mapColors = [0x29b6f6, 0x4fc3f7, 0x0277bd];
     const mapIcons = ['\u2744', '\u{1F3F0}', '\u{1F9CA}'];
 
@@ -143,8 +147,9 @@ export class MenuScene extends Phaser.Scene {
       mapButtons.push(container);
     });
 
-    // Start button
-    const startBtn = this.add.container(width / 2, height - 70);
+    // Start button - centered near bottom
+    const startBtnY = height * 0.82;
+    const startBtn = this.add.container(width / 2, startBtnY);
     const startBg = this.add.graphics();
     startBg.fillStyle(0x0277bd, 0.12);
     startBg.fillRoundedRect(-110, -28, 220, 56, 28);

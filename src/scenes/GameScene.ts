@@ -19,8 +19,8 @@ import {
 
 const INITIAL_GOLD = 200;
 const INITIAL_LIVES = 20;
-const HUD_HEIGHT = 44;
-const BOTTOM_PANEL_HEIGHT = 80;
+const HUD_HEIGHT = 40;
+const BOTTOM_PANEL_HEIGHT = 100;
 
 export class GameScene extends Phaser.Scene {
   private gold: number = INITIAL_GOLD;
@@ -83,9 +83,8 @@ export class GameScene extends Phaser.Scene {
 
     const mapWidth = this.mapConfig.cols * this.mapConfig.tileSize;
     const mapHeight = this.mapConfig.rows * this.mapConfig.tileSize;
-    const availableHeight = height - HUD_HEIGHT - BOTTOM_PANEL_HEIGHT;
     this.mapOffsetX = Math.floor((width - mapWidth) / 2);
-    this.mapOffsetY = Math.floor(HUD_HEIGHT + (availableHeight - mapHeight) / 2);
+    this.mapOffsetY = HUD_HEIGHT + 6;
 
     this.path = buildPixelPath(this.mapConfig, this.mapOffsetX, this.mapOffsetY);
 
@@ -183,7 +182,7 @@ export class GameScene extends Phaser.Scene {
       const dx = to.x - from.x;
       const dy = to.y - from.y;
       const len = Math.sqrt(dx * dx + dy * dy);
-      const count = Math.max(1, Math.floor(len / 60));
+      const count = Math.max(1, Math.floor(len / 50));
       const angle = Math.atan2(dy, dx);
 
       for (let j = 1; j <= count; j++) {
@@ -193,9 +192,9 @@ export class GameScene extends Phaser.Scene {
         const arrow = this.add.graphics();
         arrow.fillStyle(0x81d4fa, 0.2);
         arrow.beginPath();
-        arrow.moveTo(ax + Math.cos(angle) * 6, ay + Math.sin(angle) * 6);
-        arrow.lineTo(ax + Math.cos(angle + 2.6) * 5, ay + Math.sin(angle + 2.6) * 5);
-        arrow.lineTo(ax + Math.cos(angle - 2.6) * 5, ay + Math.sin(angle - 2.6) * 5);
+        arrow.moveTo(ax + Math.cos(angle) * 5, ay + Math.sin(angle) * 5);
+        arrow.lineTo(ax + Math.cos(angle + 2.6) * 4, ay + Math.sin(angle + 2.6) * 4);
+        arrow.lineTo(ax + Math.cos(angle - 2.6) * 4, ay + Math.sin(angle - 2.6) * 4);
         arrow.closePath();
         arrow.fillPath();
         arrow.setDepth(1);
@@ -205,17 +204,17 @@ export class GameScene extends Phaser.Scene {
     // Start/End markers
     const startPt = this.path[0];
     const sg = this.add.graphics();
-    sg.fillStyle(0x4caf50, 0.3); sg.fillCircle(startPt.x, startPt.y, 16);
-    sg.fillStyle(0x4caf50, 0.15); sg.fillCircle(startPt.x, startPt.y, 22);
+    sg.fillStyle(0x4caf50, 0.3); sg.fillCircle(startPt.x, startPt.y, 14);
+    sg.fillStyle(0x4caf50, 0.15); sg.fillCircle(startPt.x, startPt.y, 18);
     sg.setDepth(1);
-    this.add.text(startPt.x, startPt.y - 22, 'START', { fontSize: '9px', fontFamily: 'Arial', color: '#66bb6a', fontStyle: 'bold' }).setOrigin(0.5).setDepth(2);
+    this.add.text(startPt.x, startPt.y - 18, 'START', { fontSize: '8px', fontFamily: 'Arial', color: '#66bb6a', fontStyle: 'bold' }).setOrigin(0.5).setDepth(2);
 
     const endPt = this.path[this.path.length - 1];
     const eg = this.add.graphics();
-    eg.fillStyle(0xf44336, 0.3); eg.fillCircle(endPt.x, endPt.y, 16);
-    eg.fillStyle(0xf44336, 0.15); eg.fillCircle(endPt.x, endPt.y, 22);
+    eg.fillStyle(0xf44336, 0.3); eg.fillCircle(endPt.x, endPt.y, 14);
+    eg.fillStyle(0xf44336, 0.15); eg.fillCircle(endPt.x, endPt.y, 18);
     eg.setDepth(1);
-    this.add.text(endPt.x, endPt.y - 22, 'END', { fontSize: '9px', fontFamily: 'Arial', color: '#ef5350', fontStyle: 'bold' }).setOrigin(0.5).setDepth(2);
+    this.add.text(endPt.x, endPt.y - 18, 'END', { fontSize: '8px', fontFamily: 'Arial', color: '#ef5350', fontStyle: 'bold' }).setOrigin(0.5).setDepth(2);
   }
 
   private createHUD(): void {
@@ -229,33 +228,36 @@ export class GameScene extends Phaser.Scene {
 
     const hudY = HUD_HEIGHT / 2;
 
-    this.add.image(20, hudY, 'coin').setDepth(20);
-    this.goldText = this.add.text(36, hudY, `${this.gold}`, {
-      fontSize: '15px', fontFamily: 'Arial', color: '#ffd700', fontStyle: 'bold',
+    // Gold
+    this.add.image(16, hudY, 'coin').setDepth(20);
+    this.goldText = this.add.text(30, hudY, `${this.gold}`, {
+      fontSize: '13px', fontFamily: 'Arial', color: '#ffd700', fontStyle: 'bold',
     }).setOrigin(0, 0.5).setDepth(20);
 
-    this.add.image(130, hudY, 'heart').setDepth(20);
-    this.livesText = this.add.text(146, hudY, `${this.lives}`, {
-      fontSize: '15px', fontFamily: 'Arial', color: '#ff5252', fontStyle: 'bold',
+    // Lives
+    this.add.image(95, hudY, 'heart').setDepth(20);
+    this.livesText = this.add.text(108, hudY, `${this.lives}`, {
+      fontSize: '13px', fontFamily: 'Arial', color: '#ff5252', fontStyle: 'bold',
     }).setOrigin(0, 0.5).setDepth(20);
 
-    this.add.image(width / 2 - 50, hudY, 'wave_icon').setDepth(20);
-    this.waveText = this.add.text(width / 2 - 34, hudY, 'Wave 0/20', {
-      fontSize: '14px', fontFamily: 'Arial', color: '#81d4fa', fontStyle: 'bold',
+    // Wave
+    this.add.image(165, hudY, 'wave_icon').setDepth(20);
+    this.waveText = this.add.text(179, hudY, 'Wave 0/20', {
+      fontSize: '12px', fontFamily: 'Arial', color: '#81d4fa', fontStyle: 'bold',
     }).setOrigin(0, 0.5).setDepth(20);
 
     // Speed button
-    this.speedBtn = this.add.container(width - 45, hudY);
+    this.speedBtn = this.add.container(width - 35, hudY);
     const speedBg = this.add.graphics();
     speedBg.fillStyle(0x0d1b30, 0.9);
-    speedBg.fillRoundedRect(-28, -13, 56, 26, 13);
+    speedBg.fillRoundedRect(-24, -12, 48, 24, 12);
     speedBg.lineStyle(1.5, 0x29b6f6, 0.5);
-    speedBg.strokeRoundedRect(-28, -13, 56, 26, 13);
+    speedBg.strokeRoundedRect(-24, -12, 48, 24, 12);
     this.speedBtnText = this.add.text(0, 0, 'x1', {
-      fontSize: '13px', fontFamily: 'Arial', color: '#81d4fa', fontStyle: 'bold',
+      fontSize: '12px', fontFamily: 'Arial', color: '#81d4fa', fontStyle: 'bold',
     }).setOrigin(0.5);
     this.speedBtn.add([speedBg, this.speedBtnText]);
-    this.speedBtn.setSize(56, 26).setInteractive().setDepth(20);
+    this.speedBtn.setSize(48, 24).setInteractive().setDepth(20);
     this.speedBtn.on('pointerdown', () => this.toggleSpeed());
   }
 
@@ -271,26 +273,28 @@ export class GameScene extends Phaser.Scene {
     panelBg.setDepth(19);
 
     const btnY = panelY + BOTTOM_PANEL_HEIGHT / 2;
+    const btnW = 105;
+    const btnH = 50;
 
     // === SUMMON BUTTON ===
-    this.summonBtn = this.add.container(width / 2 - 130, btnY);
+    this.summonBtn = this.add.container(width * 0.19, btnY);
     const sumBg = this.add.graphics();
     sumBg.fillStyle(0x29b6f6, 0.12);
-    sumBg.fillRoundedRect(-55, -28, 110, 56, 12);
+    sumBg.fillRoundedRect(-btnW / 2 - 4, -btnH / 2 - 4, btnW + 8, btnH + 8, 12);
     sumBg.fillStyle(0x0277bd, 0.9);
-    sumBg.fillRoundedRect(-50, -24, 100, 48, 10);
+    sumBg.fillRoundedRect(-btnW / 2, -btnH / 2, btnW, btnH, 10);
     sumBg.fillStyle(0xffffff, 0.08);
-    sumBg.fillRoundedRect(-49, -23, 98, 20, { tl: 10, tr: 10, bl: 0, br: 0 });
+    sumBg.fillRoundedRect(-btnW / 2 + 1, -btnH / 2 + 1, btnW - 2, btnH / 2 - 2, { tl: 10, tr: 10, bl: 0, br: 0 });
     sumBg.lineStyle(1.5, 0x4fc3f7, 0.5);
-    sumBg.strokeRoundedRect(-50, -24, 100, 48, 10);
+    sumBg.strokeRoundedRect(-btnW / 2, -btnH / 2, btnW, btnH, 10);
     const sumLabel = this.add.text(0, -8, '\u{1F427} 소환', {
-      fontSize: '15px', fontFamily: 'Arial', color: '#ffffff', fontStyle: 'bold',
+      fontSize: '14px', fontFamily: 'Arial', color: '#ffffff', fontStyle: 'bold',
     }).setOrigin(0.5);
     this.summonCostText = this.add.text(0, 10, `${this.getSummonCost()}G`, {
       fontSize: '11px', fontFamily: 'Arial', color: '#ffd700', fontStyle: 'bold',
     }).setOrigin(0.5);
     this.summonBtn.add([sumBg, sumLabel, this.summonCostText]);
-    this.summonBtn.setSize(100, 48).setInteractive().setDepth(20);
+    this.summonBtn.setSize(btnW, btnH).setInteractive().setDepth(20);
     this.summonBtn.on('pointerdown', () => this.summonHero());
     this.tweens.add({
       targets: this.summonBtn, scaleX: 1.03, scaleY: 1.03,
@@ -298,45 +302,46 @@ export class GameScene extends Phaser.Scene {
     });
 
     // === MERGE BUTTON ===
-    this.mergeBtn = this.add.container(width / 2, btnY);
+    const mrgW = 80;
+    this.mergeBtn = this.add.container(width * 0.5, btnY);
     const mergBg = this.add.graphics();
     mergBg.fillStyle(0x9c27b0, 0.12);
-    mergBg.fillRoundedRect(-45, -28, 90, 56, 12);
+    mergBg.fillRoundedRect(-mrgW / 2 - 4, -btnH / 2 - 4, mrgW + 8, btnH + 8, 12);
     mergBg.fillStyle(0x7b1fa2, 0.9);
-    mergBg.fillRoundedRect(-40, -24, 80, 48, 10);
+    mergBg.fillRoundedRect(-mrgW / 2, -btnH / 2, mrgW, btnH, 10);
     mergBg.fillStyle(0xffffff, 0.08);
-    mergBg.fillRoundedRect(-39, -23, 78, 20, { tl: 10, tr: 10, bl: 0, br: 0 });
+    mergBg.fillRoundedRect(-mrgW / 2 + 1, -btnH / 2 + 1, mrgW - 2, btnH / 2 - 2, { tl: 10, tr: 10, bl: 0, br: 0 });
     mergBg.lineStyle(1.5, 0xce93d8, 0.5);
-    mergBg.strokeRoundedRect(-40, -24, 80, 48, 10);
+    mergBg.strokeRoundedRect(-mrgW / 2, -btnH / 2, mrgW, btnH, 10);
     const mergLabel = this.add.text(0, -6, '\u2728 합성', {
-      fontSize: '14px', fontFamily: 'Arial', color: '#ffffff', fontStyle: 'bold',
+      fontSize: '13px', fontFamily: 'Arial', color: '#ffffff', fontStyle: 'bold',
     }).setOrigin(0.5);
     this.mergeBadge = this.add.text(0, 12, '0', {
       fontSize: '10px', fontFamily: 'Arial', color: '#ce93d8',
     }).setOrigin(0.5);
     this.mergeBtn.add([mergBg, mergLabel, this.mergeBadge]);
-    this.mergeBtn.setSize(80, 48).setInteractive().setDepth(20);
+    this.mergeBtn.setSize(mrgW, btnH).setInteractive().setDepth(20);
     this.mergeBtn.on('pointerdown', () => this.autoMerge());
 
     // === SUMMON LEVEL UP ===
-    this.summonLvBtn = this.add.container(width / 2 + 120, btnY);
+    this.summonLvBtn = this.add.container(width * 0.81, btnY);
     const lvBg = this.add.graphics();
     lvBg.fillStyle(0x4caf50, 0.12);
-    lvBg.fillRoundedRect(-50, -28, 100, 56, 12);
+    lvBg.fillRoundedRect(-btnW / 2 - 4, -btnH / 2 - 4, btnW + 8, btnH + 8, 12);
     lvBg.fillStyle(0x2e7d32, 0.9);
-    lvBg.fillRoundedRect(-45, -24, 90, 48, 10);
+    lvBg.fillRoundedRect(-btnW / 2, -btnH / 2, btnW, btnH, 10);
     lvBg.fillStyle(0xffffff, 0.08);
-    lvBg.fillRoundedRect(-44, -23, 88, 20, { tl: 10, tr: 10, bl: 0, br: 0 });
+    lvBg.fillRoundedRect(-btnW / 2 + 1, -btnH / 2 + 1, btnW - 2, btnH / 2 - 2, { tl: 10, tr: 10, bl: 0, br: 0 });
     lvBg.lineStyle(1.5, 0x66bb6a, 0.5);
-    lvBg.strokeRoundedRect(-45, -24, 90, 48, 10);
+    lvBg.strokeRoundedRect(-btnW / 2, -btnH / 2, btnW, btnH, 10);
     this.summonLvText = this.add.text(0, -8, `소환 Lv.${this.summonLevel}`, {
-      fontSize: '12px', fontFamily: 'Arial', color: '#ffffff', fontStyle: 'bold',
+      fontSize: '11px', fontFamily: 'Arial', color: '#ffffff', fontStyle: 'bold',
     }).setOrigin(0.5);
     const lvCostText = this.add.text(0, 10, this.getSummonLevelUpCostText(), {
       fontSize: '10px', fontFamily: 'Arial', color: '#ffd700', fontStyle: 'bold',
     }).setOrigin(0.5);
     this.summonLvBtn.add([lvBg, this.summonLvText, lvCostText]);
-    this.summonLvBtn.setSize(90, 48).setInteractive().setDepth(20);
+    this.summonLvBtn.setSize(btnW, btnH).setInteractive().setDepth(20);
     this.summonLvBtn.on('pointerdown', () => this.upgradeSummonLevel(lvCostText));
   }
 
@@ -454,7 +459,8 @@ export class GameScene extends Phaser.Scene {
   private createNextWaveButton(): void {
     const { width, height } = this.scale;
     const mapBottom = this.mapOffsetY + this.mapConfig.rows * this.mapConfig.tileSize;
-    const btnY = mapBottom + (height - BOTTOM_PANEL_HEIGHT - mapBottom) / 2;
+    const panelTop = height - BOTTOM_PANEL_HEIGHT;
+    const btnY = mapBottom + (panelTop - mapBottom) / 2;
 
     this.nextWaveBtn = this.add.container(width / 2, btnY);
     const bg = this.add.graphics();
@@ -790,7 +796,7 @@ export class GameScene extends Phaser.Scene {
 
       const { width } = this.scale;
       const bonusText = this.add.text(width / 2, this.mapOffsetY - 10, `\u2605 Wave Clear  +${this.waveManager.waveReward}G \u2605`, {
-        fontSize: '16px', fontFamily: 'Arial', color: '#ffd700', fontStyle: 'bold',
+        fontSize: '14px', fontFamily: 'Arial', color: '#ffd700', fontStyle: 'bold',
         stroke: '#000000', strokeThickness: 3,
       }).setOrigin(0.5).setDepth(20);
       this.tweens.add({

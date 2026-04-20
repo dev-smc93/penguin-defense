@@ -1,9 +1,9 @@
-const CACHE_NAME = 'penguin-defense-v2';
+const CACHE_NAME = 'penguin-defense-v3';
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(['/']);
+      return cache.addAll(['./']);
     })
   );
   self.skipWaiting();
@@ -32,6 +32,6 @@ self.addEventListener('fetch', (event) => {
         }
         return response;
       });
-    }).catch(() => caches.match('/'))
+    }).catch(() => caches.match('./'))
   );
 });
