@@ -90,69 +90,237 @@ class TowerEntity {
       if (c instanceof THREE.Mesh) { c.geometry.dispose(); (c.material as THREE.Material).dispose(); }
     }
     this.auraMesh = null;
-    const c = this.config.color;
-    const emissiveI = Math.min(1, (this.tier - 1) * 0.15);
-    const mat = new THREE.MeshStandardMaterial({ color: c, emissive: c, emissiveIntensity: emissiveI, roughness: 0.4, metalness: 0.3 });
+    const col = this.config.color;
+    const emI = Math.min(1, (this.tier - 1) * 0.18);
+    const baseH = 3 + this.tier * 1.2;
+    const ts = 1 + this.tier * 0.08; // tier scale
 
-    // Base
-    const baseH = 3 + this.tier;
-    const base = new THREE.Mesh(new THREE.CylinderGeometry(3.5, 4, baseH, 8), mat);
-    base.position.y = baseH / 2;
-    base.castShadow = true;
-    this.group.add(base);
+    // Ice-stone base platform (all towers)
+    const platMat = new THREE.MeshStandardMaterial({ color: 0x3e5c78, roughness: 0.7, metalness: 0.2 });
+    const plat = new THREE.Mesh(new THREE.CylinderGeometry(4.2 * ts, 4.8 * ts, 1.2, 8), platMat);
+    plat.position.y = 0.6;
+    plat.castShadow = true;
+    this.group.add(plat);
 
-    // Type-specific top
     if (this.type === 'archer') {
-      const top = new THREE.Mesh(new THREE.ConeGeometry(3, 4 + this.tier, 8), mat.clone());
-      top.position.y = baseH + 2 + this.tier * 0.5;
-      top.castShadow = true;
-      this.group.add(top);
+      // ICE CROSSBOW TOWER - matching asset tower #8 (ballista)
+      const wallMat = new THREE.MeshStandardMaterial({ color: 0x5d8aa8, emissive: col, emissiveIntensity: emI, roughness: 0.5, metalness: 0.3 });
+      // Tower body: tapered stone cylinder
+      const body = new THREE.Mesh(new THREE.CylinderGeometry(3 * ts, 3.8 * ts, baseH, 6), wallMat);
+      body.position.y = 1.2 + baseH / 2;
+      body.castShadow = true;
+      this.group.add(body);
+      // Crossbow arm (horizontal bar)
+      const armMat = new THREE.MeshStandardMaterial({ color: 0x8b6914, roughness: 0.6 });
+      const arm = new THREE.Mesh(new THREE.BoxGeometry(8 * ts, 0.6, 0.8), armMat);
+      arm.position.y = 1.2 + baseH + 0.5;
+      arm.castShadow = true;
+      this.group.add(arm);
+      // Crossbow bolt (pointed cylinder)
+      const boltMat = new THREE.MeshStandardMaterial({ color: 0x80deea, emissive: 0x29b6f6, emissiveIntensity: 0.4 });
+      const bolt = new THREE.Mesh(new THREE.ConeGeometry(0.3, 3, 4), boltMat);
+      bolt.position.set(0, 1.2 + baseH + 0.5, 1.5);
+      bolt.rotation.x = Math.PI / 2;
+      this.group.add(bolt);
+      // Conical roof
+      const roof = new THREE.Mesh(new THREE.ConeGeometry(3.5 * ts, 3, 6),
+        new THREE.MeshStandardMaterial({ color: 0xc68c53, roughness: 0.6 }));
+      roof.position.y = 1.2 + baseH + 2.5;
+      roof.castShadow = true;
+      this.group.add(roof);
+      // Viewing slit
+      const slit = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.5, 0.3),
+        new THREE.MeshBasicMaterial({ color: 0x000000 }));
+      slit.position.set(0, 1.2 + baseH * 0.7, 3 * ts + 0.1);
+      this.group.add(slit);
+
     } else if (this.type === 'warrior') {
-      const top = new THREE.Mesh(new THREE.BoxGeometry(6, 2 + this.tier, 6), mat.clone());
-      top.position.y = baseH + 1 + this.tier * 0.3;
-      top.castShadow = true;
-      this.group.add(top);
-      // Battlements
+      // FROST FORTRESS - matching asset tower #2 (fortified)
+      const wallMat = new THREE.MeshStandardMaterial({ color: 0x7a9bb5, emissive: col, emissiveIntensity: emI, roughness: 0.5, metalness: 0.4 });
+      // Main wall block
+      const wall = new THREE.Mesh(new THREE.BoxGeometry(7 * ts, baseH, 7 * ts), wallMat);
+      wall.position.y = 1.2 + baseH / 2;
+      wall.castShadow = true;
+      this.group.add(wall);
+      // 4 corner turrets
       for (let i = 0; i < 4; i++) {
-        const angle = (i / 4) * Math.PI * 2;
-        const b = new THREE.Mesh(new THREE.BoxGeometry(1.5, 2, 1.5), mat.clone());
-        b.position.set(Math.cos(angle) * 2.5, baseH + 3 + this.tier * 0.3, Math.sin(angle) * 2.5);
-        this.group.add(b);
+        const a = (i / 4) * Math.PI * 2 + Math.PI / 4;
+        const r = 3.8 * ts;
+        const turret = new THREE.Mesh(new THREE.CylinderGeometry(1.2 * ts, 1.5 * ts, baseH + 3, 6), wallMat.clone());
+        turret.position.set(Math.cos(a) * r, 1.2 + (baseH + 3) / 2, Math.sin(a) * r);
+        turret.castShadow = true;
+        this.group.add(turret);
+        // Turret cap
+        const cap = new THREE.Mesh(new THREE.ConeGeometry(1.8 * ts, 2, 6),
+          new THREE.MeshStandardMaterial({ color: 0x9e3030, roughness: 0.5 }));
+        cap.position.set(Math.cos(a) * r, 1.2 + baseH + 4, Math.sin(a) * r);
+        this.group.add(cap);
       }
+      // Battlements on top
+      for (let i = 0; i < 8; i++) {
+        const a = (i / 8) * Math.PI * 2;
+        const bt = new THREE.Mesh(new THREE.BoxGeometry(1, 1.5, 1),
+          new THREE.MeshStandardMaterial({ color: 0x607d8b, roughness: 0.6 }));
+        bt.position.set(Math.cos(a) * 3.2 * ts, 1.2 + baseH + 0.8, Math.sin(a) * 3.2 * ts);
+        this.group.add(bt);
+      }
+      // Shield emblem (front)
+      const shield = new THREE.Mesh(new THREE.CircleGeometry(1.5, 6),
+        new THREE.MeshStandardMaterial({ color: 0xd32f2f, emissive: 0xd32f2f, emissiveIntensity: 0.3, metalness: 0.6 }));
+      shield.position.set(0, 1.2 + baseH * 0.6, 3.6 * ts);
+      this.group.add(shield);
+
     } else if (this.type === 'mage') {
-      const orbMat = new THREE.MeshStandardMaterial({ color: 0xce93d8, emissive: 0xab47bc, emissiveIntensity: 0.5 + this.tier * 0.2, transparent: true, opacity: 0.9 });
-      const orb = new THREE.Mesh(new THREE.SphereGeometry(1.5 + this.tier * 0.3, 12, 12), orbMat);
-      orb.position.y = baseH + 4 + this.tier * 0.5;
+      // WIZARD TOWER - matching asset tower #3 (wizard hat, orb)
+      const stoneMat = new THREE.MeshStandardMaterial({ color: 0x5c4a8a, emissive: col, emissiveIntensity: emI, roughness: 0.4, metalness: 0.2 });
+      // Tapered tower body
+      const body = new THREE.Mesh(new THREE.CylinderGeometry(2.5 * ts, 3.5 * ts, baseH + 2, 8), stoneMat);
+      body.position.y = 1.2 + (baseH + 2) / 2;
+      body.castShadow = true;
+      this.group.add(body);
+      // Wizard hat top (large cone)
+      const hatMat = new THREE.MeshStandardMaterial({ color: 0x311b92, emissive: 0x4527a0, emissiveIntensity: 0.3, roughness: 0.5 });
+      const hat = new THREE.Mesh(new THREE.ConeGeometry(4 * ts, 6 + this.tier, 8), hatMat);
+      hat.position.y = 1.2 + baseH + 4 + this.tier * 0.3;
+      hat.castShadow = true;
+      this.group.add(hat);
+      // Hat brim
+      const brim = new THREE.Mesh(new THREE.CylinderGeometry(4.5 * ts, 4.5 * ts, 0.5, 12),
+        new THREE.MeshStandardMaterial({ color: 0x311b92, roughness: 0.5 }));
+      brim.position.y = 1.2 + baseH + 1.5;
+      this.group.add(brim);
+      // Floating magic orb
+      const orbMat = new THREE.MeshStandardMaterial({ color: 0xce93d8, emissive: 0xab47bc, emissiveIntensity: 0.6 + this.tier * 0.2, transparent: true, opacity: 0.85 });
+      const orb = new THREE.Mesh(new THREE.SphereGeometry(1.2 + this.tier * 0.25, 12, 12), orbMat);
+      orb.position.set(0, 1.2 + baseH * 0.6, 3.5 * ts);
       this.group.add(orb);
+      // Rune ring around orb
+      const runeMat = new THREE.MeshBasicMaterial({ color: 0xab47bc, transparent: true, opacity: 0.3, side: THREE.DoubleSide });
+      const rune = new THREE.Mesh(new THREE.RingGeometry(1.8, 2.2, 16), runeMat);
+      rune.position.copy(orb.position);
+      rune.rotation.x = -Math.PI / 2;
+      this.group.add(rune);
+      // Window slits with glow
+      for (let i = 0; i < 3; i++) {
+        const a = (i / 3) * Math.PI * 2;
+        const win = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 1.5),
+          new THREE.MeshBasicMaterial({ color: 0xce93d8 }));
+        win.position.set(Math.cos(a) * 2.6 * ts, 1.2 + baseH * 0.5, Math.sin(a) * 2.6 * ts);
+        win.lookAt(0, win.position.y, 0);
+        this.group.add(win);
+      }
+
     } else if (this.type === 'ice') {
-      const iceMat = new THREE.MeshStandardMaterial({ color: 0x80deea, emissive: 0x00bcd4, emissiveIntensity: 0.3 + this.tier * 0.15, transparent: true, opacity: 0.8, roughness: 0.1 });
-      const crystal = new THREE.Mesh(new THREE.OctahedronGeometry(2.5 + this.tier * 0.4, 0), iceMat);
-      crystal.position.y = baseH + 3 + this.tier * 0.5;
-      crystal.rotation.y = Math.PI / 4;
-      this.group.add(crystal);
+      // CRYSTAL SPIRE - matching asset tower #1 (ice crystal tower)
+      const crystMat = new THREE.MeshStandardMaterial({ color: 0x80deea, emissive: 0x00bcd4, emissiveIntensity: 0.35 + this.tier * 0.15, transparent: true, opacity: 0.75, roughness: 0.05, metalness: 0.1 });
+      // Frozen base
+      const frozenBase = new THREE.Mesh(new THREE.CylinderGeometry(3.5 * ts, 4 * ts, 2, 6),
+        new THREE.MeshStandardMaterial({ color: 0xb2ebf2, roughness: 0.3, metalness: 0.1 }));
+      frozenBase.position.y = 1.2 + 1;
+      frozenBase.castShadow = true;
+      this.group.add(frozenBase);
+      // Main crystal (tall octahedron)
+      const mainCrystal = new THREE.Mesh(new THREE.OctahedronGeometry(2.5 * ts, 0), crystMat);
+      mainCrystal.position.y = 1.2 + baseH + 2;
+      mainCrystal.scale.y = 2;
+      mainCrystal.castShadow = true;
+      this.group.add(mainCrystal);
+      // Surrounding smaller crystals
+      const smallCount = 3 + Math.floor(this.tier / 2);
+      for (let i = 0; i < smallCount; i++) {
+        const a = (i / smallCount) * Math.PI * 2;
+        const r = 2.5 * ts;
+        const h = 2 + Math.random() * 3 + this.tier * 0.5;
+        const sc = new THREE.Mesh(new THREE.OctahedronGeometry(0.8 + Math.random() * 0.5, 0), crystMat.clone());
+        sc.position.set(Math.cos(a) * r, 1.2 + h, Math.sin(a) * r);
+        sc.scale.y = 1.5 + Math.random();
+        sc.rotation.y = Math.random() * Math.PI;
+        sc.rotation.z = (Math.random() - 0.5) * 0.3;
+        this.group.add(sc);
+      }
+      // Ice mist ring at base
+      const mistMat = new THREE.MeshBasicMaterial({ color: 0xb2ebf2, transparent: true, opacity: 0.15, side: THREE.DoubleSide });
+      const mist = new THREE.Mesh(new THREE.RingGeometry(3, 5.5 * ts, 20), mistMat);
+      mist.rotation.x = -Math.PI / 2;
+      mist.position.y = 1.5;
+      this.group.add(mist);
+
     } else if (this.type === 'thunder') {
-      const coil = new THREE.Mesh(new THREE.TorusGeometry(3, 0.4 + this.tier * 0.1, 8, 16),
-        new THREE.MeshStandardMaterial({ color: 0xfdd835, emissive: 0xfdd835, emissiveIntensity: 0.4 + this.tier * 0.2 }));
-      coil.position.y = baseH + 2;
-      coil.rotation.x = Math.PI / 2;
-      this.group.add(coil);
+      // STORM PILLAR - matching asset thunder bolt style
+      const pillarMat = new THREE.MeshStandardMaterial({ color: 0x546e7a, emissive: col, emissiveIntensity: emI, roughness: 0.4, metalness: 0.5 });
+      // Stone pillar
+      const pillar = new THREE.Mesh(new THREE.CylinderGeometry(2 * ts, 3 * ts, baseH + 2, 6), pillarMat);
+      pillar.position.y = 1.2 + (baseH + 2) / 2;
+      pillar.castShadow = true;
+      this.group.add(pillar);
+      // Lightning rod (thin tall spike)
+      const rodMat = new THREE.MeshStandardMaterial({ color: 0xfdd835, emissive: 0xfdd835, emissiveIntensity: 0.5 + this.tier * 0.2, metalness: 0.8 });
+      const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.15, 5 + this.tier, 4), rodMat);
+      rod.position.y = 1.2 + baseH + 4 + this.tier * 0.3;
+      this.group.add(rod);
+      // Coil rings at multiple heights
+      const coilCount = 2 + Math.floor(this.tier / 2);
+      for (let i = 0; i < coilCount; i++) {
+        const coilY = 1.2 + 2 + i * (baseH / coilCount);
+        const coil = new THREE.Mesh(new THREE.TorusGeometry(2.5 * ts, 0.25 + this.tier * 0.05, 8, 16),
+          new THREE.MeshStandardMaterial({ color: 0xfdd835, emissive: 0xfbc02d, emissiveIntensity: 0.4 + this.tier * 0.15 }));
+        coil.position.y = coilY;
+        coil.rotation.x = Math.PI / 2;
+        this.group.add(coil);
+      }
+      // Spark orb at top
+      const sparkMat = new THREE.MeshStandardMaterial({ color: 0xfff59d, emissive: 0xfdd835, emissiveIntensity: 0.8, transparent: true, opacity: 0.7 });
+      const spark = new THREE.Mesh(new THREE.SphereGeometry(0.8 + this.tier * 0.2, 8, 8), sparkMat);
+      spark.position.y = 1.2 + baseH + 7 + this.tier * 0.5;
+      this.group.add(spark);
+      // Electric arc lines (simple cylinders)
+      for (let i = 0; i < 3; i++) {
+        const a = (i / 3) * Math.PI * 2 + Math.random();
+        const arc = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 4, 3),
+          new THREE.MeshBasicMaterial({ color: 0xfdd835 }));
+        arc.position.set(Math.cos(a) * 1.5, 1.2 + baseH + 3, Math.sin(a) * 1.5);
+        arc.rotation.z = (Math.random() - 0.5) * 0.8;
+        this.group.add(arc);
+      }
     }
 
-    // Tier 3+ aura ring
+    // Tier 3+ aura ring (enhanced)
     if (this.tier >= SKILL_MIN_TIER) {
-      const auraMat = new THREE.MeshBasicMaterial({ color: TIER_COLORS[this.tier - 1], transparent: true, opacity: 0.2, side: THREE.DoubleSide });
-      this.auraMesh = new THREE.Mesh(new THREE.RingGeometry(4, 6, 24), auraMat);
+      const auraMat = new THREE.MeshBasicMaterial({ color: TIER_COLORS[this.tier - 1], transparent: true, opacity: 0.25, side: THREE.DoubleSide });
+      this.auraMesh = new THREE.Mesh(new THREE.RingGeometry(5, 7.5, 32), auraMat);
       this.auraMesh.rotation.x = -Math.PI / 2;
       this.auraMesh.position.y = 0.5;
       this.group.add(this.auraMesh);
+      // Inner aura glow
+      const innerAura = new THREE.Mesh(new THREE.RingGeometry(3, 5, 32),
+        new THREE.MeshBasicMaterial({ color: TIER_COLORS[this.tier - 1], transparent: true, opacity: 0.1, side: THREE.DoubleSide }));
+      innerAura.rotation.x = -Math.PI / 2;
+      innerAura.position.y = 0.6;
+      this.group.add(innerAura);
     }
 
     // Tier 4+ crown
     if (this.tier >= 4) {
-      const crownMat = new THREE.MeshStandardMaterial({ color: 0xffd700, emissive: 0xffa000, emissiveIntensity: 0.5, metalness: 0.8 });
-      const crown = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 2, 1.5, 6), crownMat);
-      crown.position.y = baseH + 8 + this.tier;
+      const crownMat = new THREE.MeshStandardMaterial({ color: 0xffd700, emissive: 0xffa000, emissiveIntensity: 0.6, metalness: 0.9, roughness: 0.2 });
+      const crown = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 1.8, 1.8, 5), crownMat);
+      const topY = this.type === 'warrior' ? 1.2 + baseH + 6 : this.type === 'mage' ? 1.2 + baseH + 6 + this.tier :
+        this.type === 'ice' ? 1.2 + baseH + 6 : this.type === 'thunder' ? 1.2 + baseH + 8 + this.tier : 1.2 + baseH + 5;
+      crown.position.y = topY;
       this.group.add(crown);
+      // Crown jewel
+      const jewel = new THREE.Mesh(new THREE.SphereGeometry(0.4, 8, 8),
+        new THREE.MeshStandardMaterial({ color: 0xff1744, emissive: 0xff1744, emissiveIntensity: 0.5 }));
+      jewel.position.y = topY + 1;
+      this.group.add(jewel);
+    }
+
+    // Tier 5 mythic particle ring
+    if (this.tier >= 5) {
+      const mythicMat = new THREE.MeshBasicMaterial({ color: 0xff1744, transparent: true, opacity: 0.2, side: THREE.DoubleSide });
+      const mythicRing = new THREE.Mesh(new THREE.RingGeometry(6, 9, 32), mythicMat);
+      mythicRing.rotation.x = -Math.PI / 2;
+      mythicRing.position.y = 1;
+      this.group.add(mythicRing);
     }
   }
 
@@ -245,47 +413,244 @@ class MonsterEntity {
   private buildMesh(): void {
     const s = this.stats.size * 0.15;
     const color = this.stats.color;
-    const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.6, metalness: 0.1 });
 
-    if (this.type === 'boss') {
-      mat.emissive = new THREE.Color(0x660000);
-      mat.emissiveIntensity = 0.3;
-    }
-    if (this.type === 'dragon') {
-      mat.transparent = true;
-      mat.opacity = 0.6;
-      mat.emissive = new THREE.Color(0x9575cd);
-      mat.emissiveIntensity = 0.4;
-    }
-    // Body
-    const body = new THREE.Mesh(new THREE.SphereGeometry(s, 10, 8), mat);
-    body.position.y = s + 0.5;
-    body.castShadow = true;
-    this.group.add(body);
-    // Eyes
-    const eyeMat = new THREE.MeshBasicMaterial({ color: this.type === 'dragon' ? 0x000000 : 0xff0000 });
-    for (const side of [-1, 1]) {
-      const eye = new THREE.Mesh(new THREE.SphereGeometry(s * 0.2, 6, 6), eyeMat);
-      eye.position.set(side * s * 0.4, s + s * 0.3 + 0.5, s * 0.7);
-      this.group.add(eye);
-    }
-    // Type-specific
-    if (this.type === 'orc') {
-      const armor = new THREE.Mesh(new THREE.BoxGeometry(s * 1.4, s * 0.8, s * 0.3),
-        new THREE.MeshStandardMaterial({ color: 0x607d8b, metalness: 0.7, roughness: 0.3 }));
-      armor.position.set(0, s + 0.5, s * 0.8);
-      this.group.add(armor);
-    } else if (this.type === 'boss') {
-      const crown = new THREE.Mesh(new THREE.ConeGeometry(s * 0.6, s * 0.8, 5),
-        new THREE.MeshStandardMaterial({ color: 0xffd700, metalness: 0.9 }));
-      crown.position.y = s * 2 + 1;
-      this.group.add(crown);
+    if (this.type === 'goblin') {
+      // GREEN ORC/GOBLIN - small green creature with ears
+      const skinMat = new THREE.MeshStandardMaterial({ color: 0x4caf50, roughness: 0.7 });
+      // Body (slightly oval)
+      const body = new THREE.Mesh(new THREE.SphereGeometry(s * 0.8, 10, 8), skinMat);
+      body.position.y = s * 0.9 + 0.5;
+      body.scale.y = 1.1;
+      body.castShadow = true;
+      this.group.add(body);
+      // Head
+      const head = new THREE.Mesh(new THREE.SphereGeometry(s * 0.55, 10, 8), skinMat);
+      head.position.y = s * 1.8 + 0.5;
+      this.group.add(head);
+      // Pointy ears
+      const earMat = new THREE.MeshStandardMaterial({ color: 0x388e3c });
+      for (const side of [-1, 1]) {
+        const ear = new THREE.Mesh(new THREE.ConeGeometry(s * 0.15, s * 0.5, 4), earMat);
+        ear.position.set(side * s * 0.5, s * 2 + 0.5, 0);
+        ear.rotation.z = side * 0.5;
+        this.group.add(ear);
+      }
+      // Eyes (yellow, menacing)
+      const eyeMat = new THREE.MeshBasicMaterial({ color: 0xffeb3b });
+      for (const side of [-1, 1]) {
+        const eye = new THREE.Mesh(new THREE.SphereGeometry(s * 0.12, 6, 6), eyeMat);
+        eye.position.set(side * s * 0.2, s * 1.9 + 0.5, s * 0.45);
+        this.group.add(eye);
+      }
+      // Arms
+      for (const side of [-1, 1]) {
+        const arm = new THREE.Mesh(new THREE.CylinderGeometry(s * 0.1, s * 0.08, s * 0.8, 5), skinMat);
+        arm.position.set(side * s * 0.7, s * 0.8 + 0.5, 0);
+        arm.rotation.z = side * 0.4;
+        this.group.add(arm);
+      }
+      // Legs
+      for (const side of [-1, 1]) {
+        const leg = new THREE.Mesh(new THREE.CylinderGeometry(s * 0.12, s * 0.1, s * 0.5, 5), skinMat);
+        leg.position.set(side * s * 0.25, s * 0.25 + 0.5, 0);
+        this.group.add(leg);
+      }
+
+    } else if (this.type === 'orc') {
+      // ICE DEMON - blue horned demon with armor
+      const skinMat = new THREE.MeshStandardMaterial({ color: 0x4a6fa5, roughness: 0.5, metalness: 0.2 });
+      // Torso
+      const torso = new THREE.Mesh(new THREE.SphereGeometry(s * 0.9, 10, 8), skinMat);
+      torso.position.y = s + 0.5;
+      torso.scale.set(1, 1.1, 0.85);
+      torso.castShadow = true;
+      this.group.add(torso);
+      // Head
+      const head = new THREE.Mesh(new THREE.SphereGeometry(s * 0.5, 10, 8), skinMat);
+      head.position.y = s * 1.9 + 0.5;
+      this.group.add(head);
+      // Horns
+      const hornMat = new THREE.MeshStandardMaterial({ color: 0x90caf9, emissive: 0x42a5f5, emissiveIntensity: 0.2, roughness: 0.3 });
+      for (const side of [-1, 1]) {
+        const horn = new THREE.Mesh(new THREE.ConeGeometry(s * 0.12, s * 0.7, 5), hornMat);
+        horn.position.set(side * s * 0.35, s * 2.3 + 0.5, -s * 0.1);
+        horn.rotation.z = side * 0.3;
+        this.group.add(horn);
+      }
+      // Eyes (red glowing)
+      for (const side of [-1, 1]) {
+        const eye = new THREE.Mesh(new THREE.SphereGeometry(s * 0.1, 6, 6),
+          new THREE.MeshBasicMaterial({ color: 0xff1744 }));
+        eye.position.set(side * s * 0.2, s * 2 + 0.5, s * 0.4);
+        this.group.add(eye);
+      }
+      // Armor chest plate
+      const armorMat = new THREE.MeshStandardMaterial({ color: 0x546e7a, metalness: 0.8, roughness: 0.2 });
+      const chest = new THREE.Mesh(new THREE.BoxGeometry(s * 1.2, s * 0.7, s * 0.3), armorMat);
+      chest.position.set(0, s + 0.5, s * 0.6);
+      this.group.add(chest);
+      // Shoulder pads
+      for (const side of [-1, 1]) {
+        const pad = new THREE.Mesh(new THREE.SphereGeometry(s * 0.3, 6, 6), armorMat);
+        pad.position.set(side * s * 0.9, s * 1.4 + 0.5, 0);
+        pad.scale.y = 0.6;
+        this.group.add(pad);
+      }
+      // Arms
+      for (const side of [-1, 1]) {
+        const arm = new THREE.Mesh(new THREE.CylinderGeometry(s * 0.12, s * 0.1, s, 5), skinMat);
+        arm.position.set(side * s * 0.85, s * 0.7 + 0.5, 0);
+        arm.rotation.z = side * 0.2;
+        this.group.add(arm);
+      }
+
     } else if (this.type === 'troll') {
-      const bone = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, s),
-        new THREE.MeshStandardMaterial({ color: 0xeeeeee }));
-      bone.position.set(s * 0.6, s + 0.5, 0);
-      bone.rotation.z = 0.4;
-      this.group.add(bone);
+      // GIANT MUMMY - large wrapped figure
+      const wrapMat = new THREE.MeshStandardMaterial({ color: 0x8d6e63, roughness: 0.8 });
+      const bandageMat = new THREE.MeshStandardMaterial({ color: 0xd7ccc8, roughness: 0.9 });
+      // Large body
+      const body = new THREE.Mesh(new THREE.CylinderGeometry(s * 0.7, s * 0.8, s * 1.8, 8), wrapMat);
+      body.position.y = s * 0.9 + 0.5;
+      body.castShadow = true;
+      this.group.add(body);
+      // Head
+      const head = new THREE.Mesh(new THREE.SphereGeometry(s * 0.55, 8, 8), wrapMat);
+      head.position.y = s * 2 + 0.5;
+      this.group.add(head);
+      // Bandage wraps (horizontal rings)
+      for (let i = 0; i < 5; i++) {
+        const wrap = new THREE.Mesh(new THREE.TorusGeometry(s * (0.75 - i * 0.03), 0.12, 4, 12), bandageMat);
+        wrap.position.y = s * 0.3 + i * s * 0.35 + 0.5;
+        wrap.rotation.x = Math.PI / 2;
+        wrap.rotation.y = i * 0.3;
+        this.group.add(wrap);
+      }
+      // Eyes (glowing yellow through bandages)
+      for (const side of [-1, 1]) {
+        const eye = new THREE.Mesh(new THREE.SphereGeometry(s * 0.12, 6, 6),
+          new THREE.MeshBasicMaterial({ color: 0xffd54f }));
+        eye.position.set(side * s * 0.2, s * 2.1 + 0.5, s * 0.45);
+        this.group.add(eye);
+      }
+      // Massive fists
+      for (const side of [-1, 1]) {
+        const arm = new THREE.Mesh(new THREE.CylinderGeometry(s * 0.15, s * 0.12, s * 1.2, 5), wrapMat);
+        arm.position.set(side * s * 0.85, s * 0.8 + 0.5, 0);
+        arm.rotation.z = side * 0.3;
+        this.group.add(arm);
+        const fist = new THREE.Mesh(new THREE.SphereGeometry(s * 0.25, 6, 6), wrapMat);
+        fist.position.set(side * s * 1.1, s * 0.2 + 0.5, 0);
+        this.group.add(fist);
+      }
+
+    } else if (this.type === 'dragon') {
+      // GHOST - translucent floating spirit
+      const ghostMat = new THREE.MeshStandardMaterial({
+        color: 0xe8eaf6, emissive: 0x9575cd, emissiveIntensity: 0.5,
+        transparent: true, opacity: 0.5, roughness: 0.3, side: THREE.DoubleSide
+      });
+      // Body (teardrop shape: sphere + cone)
+      const bodyTop = new THREE.Mesh(new THREE.SphereGeometry(s * 0.8, 12, 8), ghostMat);
+      bodyTop.position.y = s * 1.5 + 0.5;
+      bodyTop.castShadow = true;
+      this.group.add(bodyTop);
+      // Flowing tail
+      const tail = new THREE.Mesh(new THREE.ConeGeometry(s * 0.85, s * 1.5, 8), ghostMat.clone());
+      tail.position.y = s * 0.5 + 0.5;
+      tail.rotation.x = Math.PI; // inverted cone
+      this.group.add(tail);
+      // Face hole (dark circle)
+      const faceMat = new THREE.MeshBasicMaterial({ color: 0x1a1a2e, transparent: true, opacity: 0.8 });
+      const mouth = new THREE.Mesh(new THREE.CircleGeometry(s * 0.25, 8), faceMat);
+      mouth.position.set(0, s * 1.3 + 0.5, s * 0.7);
+      this.group.add(mouth);
+      // Dark eyes
+      for (const side of [-1, 1]) {
+        const eye = new THREE.Mesh(new THREE.SphereGeometry(s * 0.15, 6, 6),
+          new THREE.MeshBasicMaterial({ color: 0x000000 }));
+        eye.position.set(side * s * 0.3, s * 1.7 + 0.5, s * 0.65);
+        this.group.add(eye);
+      }
+      // Inner glow
+      const glowMat = new THREE.MeshBasicMaterial({ color: 0x7c4dff, transparent: true, opacity: 0.15 });
+      const glow = new THREE.Mesh(new THREE.SphereGeometry(s * 1.1, 8, 8), glowMat);
+      glow.position.y = s * 1.2 + 0.5;
+      this.group.add(glow);
+      // Wispy tendrils
+      for (let i = 0; i < 3; i++) {
+        const a = (i / 3) * Math.PI * 2;
+        const wisp = new THREE.Mesh(new THREE.CylinderGeometry(0.1, s * 0.15, s * 0.8, 4),
+          new THREE.MeshBasicMaterial({ color: 0xb39ddb, transparent: true, opacity: 0.3 }));
+        wisp.position.set(Math.cos(a) * s * 0.5, s * 0.1 + 0.5, Math.sin(a) * s * 0.5);
+        wisp.rotation.z = (Math.random() - 0.5) * 0.5;
+        this.group.add(wisp);
+      }
+
+    } else if (this.type === 'boss') {
+      // SHADOW BEAST KING - large dark body, crown, cape, glowing eyes
+      const darkMat = new THREE.MeshStandardMaterial({
+        color: 0x2c0a0a, emissive: 0x8b0000, emissiveIntensity: 0.4,
+        roughness: 0.5, metalness: 0.3
+      });
+      // Large body
+      const body = new THREE.Mesh(new THREE.SphereGeometry(s, 12, 10), darkMat);
+      body.position.y = s + 0.5;
+      body.scale.set(1, 1.15, 0.9);
+      body.castShadow = true;
+      this.group.add(body);
+      // Head
+      const head = new THREE.Mesh(new THREE.SphereGeometry(s * 0.6, 10, 8), darkMat);
+      head.position.y = s * 2.1 + 0.5;
+      this.group.add(head);
+      // Crown
+      const crownMat = new THREE.MeshStandardMaterial({ color: 0xffd700, emissive: 0xffa000, emissiveIntensity: 0.6, metalness: 0.9, roughness: 0.1 });
+      const crown = new THREE.Mesh(new THREE.CylinderGeometry(s * 0.35, s * 0.5, s * 0.5, 6), crownMat);
+      crown.position.y = s * 2.7 + 0.5;
+      this.group.add(crown);
+      // Crown spikes
+      for (let i = 0; i < 5; i++) {
+        const a = (i / 5) * Math.PI * 2;
+        const spike = new THREE.Mesh(new THREE.ConeGeometry(s * 0.08, s * 0.35, 4), crownMat);
+        spike.position.set(Math.cos(a) * s * 0.35, s * 3 + 0.5, Math.sin(a) * s * 0.35);
+        this.group.add(spike);
+      }
+      // Glowing red eyes
+      for (const side of [-1, 1]) {
+        const eye = new THREE.Mesh(new THREE.SphereGeometry(s * 0.15, 6, 6),
+          new THREE.MeshBasicMaterial({ color: 0xff1744 }));
+        eye.position.set(side * s * 0.25, s * 2.2 + 0.5, s * 0.5);
+        this.group.add(eye);
+        // Eye glow
+        const eyeGlow = new THREE.Mesh(new THREE.SphereGeometry(s * 0.25, 6, 6),
+          new THREE.MeshBasicMaterial({ color: 0xff0000, transparent: true, opacity: 0.2 }));
+        eyeGlow.position.copy(eye.position);
+        this.group.add(eyeGlow);
+      }
+      // Cape (back plate)
+      const capeMat = new THREE.MeshStandardMaterial({ color: 0x4a0000, emissive: 0x330000, emissiveIntensity: 0.2, side: THREE.DoubleSide });
+      const cape = new THREE.Mesh(new THREE.PlaneGeometry(s * 2, s * 2.5), capeMat);
+      cape.position.set(0, s * 1.2 + 0.5, -s * 0.6);
+      cape.rotation.x = 0.15;
+      this.group.add(cape);
+      // Arms (massive)
+      for (const side of [-1, 1]) {
+        const arm = new THREE.Mesh(new THREE.CylinderGeometry(s * 0.2, s * 0.15, s * 1.4, 6), darkMat);
+        arm.position.set(side * s * 1, s * 0.8 + 0.5, 0);
+        arm.rotation.z = side * 0.3;
+        arm.castShadow = true;
+        this.group.add(arm);
+        // Claws
+        const claw = new THREE.Mesh(new THREE.ConeGeometry(s * 0.2, s * 0.4, 4),
+          new THREE.MeshStandardMaterial({ color: 0x1a0000, roughness: 0.4 }));
+        claw.position.set(side * s * 1.2, s * 0.1 + 0.5, 0);
+        claw.rotation.x = Math.PI;
+        this.group.add(claw);
+      }
+      // Dark aura
+      const auraMat = new THREE.MeshBasicMaterial({ color: 0xff0000, transparent: true, opacity: 0.08 });
+      const aura = new THREE.Mesh(new THREE.SphereGeometry(s * 1.6, 12, 12), auraMat);
+      aura.position.y = s + 0.5;
+      this.group.add(aura);
     }
   }
 
@@ -482,28 +847,81 @@ export class Game {
     this.setupLights();
     this.menuGroup = new THREE.Group();
 
-    // Ground preview
+    // Ground with gradient rings
     const ground = new THREE.Mesh(
-      new THREE.CircleGeometry(MAP_RADIUS + 10, 48),
-      new THREE.MeshStandardMaterial({ color: 0x1a2a3a, roughness: 0.8 })
+      new THREE.CircleGeometry(MAP_RADIUS + 20, 64),
+      new THREE.MeshStandardMaterial({ color: 0x0d1b2a, roughness: 0.85 })
     );
     ground.rotation.x = -Math.PI / 2;
     ground.receiveShadow = true;
     this.menuGroup.add(ground);
+    // Decorative rings
+    for (let i = 0; i < 5; i++) {
+      const r = new THREE.Mesh(
+        new THREE.RingGeometry(20 + i * 22, 22 + i * 22, 48),
+        new THREE.MeshBasicMaterial({ color: 0x29b6f6, transparent: true, opacity: 0.06, side: THREE.DoubleSide })
+      );
+      r.rotation.x = -Math.PI / 2;
+      r.position.y = 0.1;
+      this.menuGroup.add(r);
+    }
 
-    // Spiral path preview
+    // Spiral path (glowing)
     const pathPts = generateSpiralPath();
     const curve = new THREE.CatmullRomCurve3(pathPts);
-    const tubeGeo = new THREE.TubeGeometry(curve, 200, 2, 8, false);
-    const tubeMat = new THREE.MeshStandardMaterial({ color: 0x29b6f6, emissive: 0x0277bd, emissiveIntensity: 0.3, transparent: true, opacity: 0.7 });
+    const tubeGeo = new THREE.TubeGeometry(curve, 250, 2.5, 8, false);
+    const tubeMat = new THREE.MeshStandardMaterial({ color: 0x29b6f6, emissive: 0x0277bd, emissiveIntensity: 0.4, transparent: true, opacity: 0.7 });
     this.menuGroup.add(new THREE.Mesh(tubeGeo, tubeMat));
+    // Path glow
+    const glow = new THREE.Mesh(
+      new THREE.TubeGeometry(curve, 250, 3.5, 8, false),
+      new THREE.MeshBasicMaterial({ color: 0x4fc3f7, transparent: true, opacity: 0.08 })
+    );
+    this.menuGroup.add(glow);
 
-    // Center base
-    const baseMat = new THREE.MeshStandardMaterial({ color: 0x4fc3f7, emissive: 0x29b6f6, emissiveIntensity: 0.5 });
-    const baseMesh = new THREE.Mesh(new THREE.CylinderGeometry(8, 10, 6, 12), baseMat);
-    baseMesh.position.y = 3;
+    // Center fortress
+    const basePlat = new THREE.Mesh(new THREE.CylinderGeometry(12, 14, 2, 12),
+      new THREE.MeshStandardMaterial({ color: 0x263238, roughness: 0.5, metalness: 0.3 }));
+    basePlat.position.y = 1;
+    this.menuGroup.add(basePlat);
+    const baseMat = new THREE.MeshStandardMaterial({ color: 0x4fc3f7, emissive: 0x29b6f6, emissiveIntensity: 0.6, metalness: 0.4 });
+    const baseMesh = new THREE.Mesh(new THREE.CylinderGeometry(7, 9, 7, 8), baseMat);
+    baseMesh.position.y = 5.5;
     baseMesh.castShadow = true;
     this.menuGroup.add(baseMesh);
+    // Crystal spire
+    const spireMat = new THREE.MeshStandardMaterial({ color: 0xb3e5fc, emissive: 0x4fc3f7, emissiveIntensity: 0.5, transparent: true, opacity: 0.8, roughness: 0.05 });
+    const spire = new THREE.Mesh(new THREE.OctahedronGeometry(3, 0), spireMat);
+    spire.position.y = 13;
+    spire.scale.y = 2;
+    this.menuGroup.add(spire);
+
+    // Perimeter ice crystals
+    const crystMat = new THREE.MeshStandardMaterial({ color: 0xb2ebf2, emissive: 0x4dd0e1, emissiveIntensity: 0.3, transparent: true, opacity: 0.7, roughness: 0.05 });
+    for (let i = 0; i < 12; i++) {
+      const a = (i / 12) * Math.PI * 2;
+      const r = MAP_RADIUS + 5;
+      const h = 4 + Math.random() * 6;
+      const c = new THREE.Mesh(new THREE.OctahedronGeometry(1 + Math.random(), 0), crystMat.clone());
+      c.position.set(Math.cos(a) * r, h / 2, Math.sin(a) * r);
+      c.scale.y = h / 2;
+      c.rotation.y = Math.random() * Math.PI;
+      this.menuGroup.add(c);
+    }
+
+    // Menu snow particles
+    const snowCount = 400;
+    const snowGeo = new THREE.BufferGeometry();
+    const snowPos = new Float32Array(snowCount * 3);
+    for (let i = 0; i < snowCount; i++) {
+      snowPos[i * 3] = (Math.random() - 0.5) * 400;
+      snowPos[i * 3 + 1] = Math.random() * 180;
+      snowPos[i * 3 + 2] = (Math.random() - 0.5) * 400;
+    }
+    snowGeo.setAttribute('position', new THREE.BufferAttribute(snowPos, 3));
+    const menuSnow = new THREE.Points(snowGeo, new THREE.PointsMaterial({ color: 0xffffff, size: 1.2, transparent: true, opacity: 0.5 }));
+    menuSnow.userData.isSnow = true;
+    this.menuGroup.add(menuSnow);
 
     this.scene.add(this.menuGroup);
     this.ui.showMenu();
@@ -540,11 +958,13 @@ export class Game {
 
   // ============ MAP BUILDING ============
   private setupLights(): void {
-    const ambient = new THREE.AmbientLight(0x4488cc, 0.5);
+    // Cool moonlit ambient
+    const ambient = new THREE.AmbientLight(0x3a6ea5, 0.6);
     this.scene.add(ambient);
 
-    const dir = new THREE.DirectionalLight(0xffeedd, 1.2);
-    dir.position.set(80, 200, 60);
+    // Main directional (moonlight)
+    const dir = new THREE.DirectionalLight(0xc8e6ff, 1.3);
+    dir.position.set(80, 220, 60);
     dir.castShadow = true;
     dir.shadow.mapSize.set(1024, 1024);
     dir.shadow.camera.left = -160; dir.shadow.camera.right = 160;
@@ -552,91 +972,228 @@ export class Game {
     dir.shadow.camera.near = 50; dir.shadow.camera.far = 500;
     this.scene.add(dir);
 
-    const point = new THREE.PointLight(0x4fc3f7, 1, 200);
-    point.position.set(0, 20, 0);
-    this.scene.add(point);
+    // Center base glow
+    const centerLight = new THREE.PointLight(0x4fc3f7, 1.5, 180);
+    centerLight.position.set(0, 25, 0);
+    this.scene.add(centerLight);
+
+    // Aurora accent lights (green/purple)
+    const auroraGreen = new THREE.PointLight(0x00e676, 0.4, 300);
+    auroraGreen.position.set(-80, 120, -60);
+    this.scene.add(auroraGreen);
+    const auroraPurple = new THREE.PointLight(0xb388ff, 0.35, 300);
+    auroraPurple.position.set(60, 110, -80);
+    this.scene.add(auroraPurple);
+
+    // Warm rim light from spawn
+    const rimLight = new THREE.PointLight(0xff8a65, 0.5, 200);
+    rimLight.position.set(MAP_RADIUS, 15, 0);
+    this.scene.add(rimLight);
   }
 
   private buildMap(): void {
-    // Ground
-    const groundGeo = new THREE.CircleGeometry(MAP_RADIUS + 15, 48);
-    const groundMat = new THREE.MeshStandardMaterial({ color: 0x1a2a3a, roughness: 0.9 });
+    // === GROUND: layered icy terrain ===
+    // Outer dark ring
+    const outerRing = new THREE.Mesh(
+      new THREE.RingGeometry(MAP_RADIUS + 5, MAP_RADIUS + 25, 64),
+      new THREE.MeshStandardMaterial({ color: 0x060e1a, roughness: 0.9 })
+    );
+    outerRing.rotation.x = -Math.PI / 2;
+    outerRing.position.y = -0.1;
+    this.scene.add(outerRing);
+
+    // Main ground disc
+    const groundGeo = new THREE.CircleGeometry(MAP_RADIUS + 5, 64);
+    const groundMat = new THREE.MeshStandardMaterial({ color: 0x15253a, roughness: 0.85, metalness: 0.05 });
     const ground = new THREE.Mesh(groundGeo, groundMat);
     ground.rotation.x = -Math.PI / 2;
     ground.receiveShadow = true;
     this.scene.add(ground);
 
-    // Outer ring decoration
-    const ring = new THREE.Mesh(
-      new THREE.RingGeometry(MAP_RADIUS + 5, MAP_RADIUS + 15, 48),
-      new THREE.MeshStandardMaterial({ color: 0x0d1b30, roughness: 0.8 })
-    );
-    ring.rotation.x = -Math.PI / 2;
-    ring.position.y = 0.1;
-    this.scene.add(ring);
+    // Concentric decoration rings
+    const ringColors = [0x1a3050, 0x1e3858, 0x223e62, 0x1a3050];
+    const ringRadii = [110, 85, 55, 30];
+    for (let i = 0; i < ringColors.length; i++) {
+      const r = new THREE.Mesh(
+        new THREE.RingGeometry(ringRadii[i] - 2, ringRadii[i], 64),
+        new THREE.MeshStandardMaterial({ color: ringColors[i], emissive: 0x29b6f6, emissiveIntensity: 0.05, roughness: 0.7 })
+      );
+      r.rotation.x = -Math.PI / 2;
+      r.position.y = 0.05 + i * 0.02;
+      this.scene.add(r);
+    }
 
-    // Spiral path
+    // === SPIRAL PATH ===
     const pathPts = generateSpiralPath();
     const curve = new THREE.CatmullRomCurve3(pathPts);
-    const tubeGeo = new THREE.TubeGeometry(curve, 200, 2.5, 8, false);
-    const tubeMat = new THREE.MeshStandardMaterial({ color: 0x37474f, emissive: 0x263238, emissiveIntensity: 0.2, roughness: 0.7 });
+    // Path body
+    const tubeGeo = new THREE.TubeGeometry(curve, 250, 2.8, 8, false);
+    const tubeMat = new THREE.MeshStandardMaterial({ color: 0x2c3e50, emissive: 0x1a237e, emissiveIntensity: 0.15, roughness: 0.6, metalness: 0.1 });
     const tube = new THREE.Mesh(tubeGeo, tubeMat);
     tube.receiveShadow = true;
     this.scene.add(tube);
-
-    // Path edge glow
+    // Path outer glow (blue)
     const glowTube = new THREE.Mesh(
-      new THREE.TubeGeometry(curve, 200, 3.2, 8, false),
-      new THREE.MeshBasicMaterial({ color: 0x29b6f6, transparent: true, opacity: 0.08 })
+      new THREE.TubeGeometry(curve, 250, 3.8, 8, false),
+      new THREE.MeshBasicMaterial({ color: 0x29b6f6, transparent: true, opacity: 0.06 })
     );
     this.scene.add(glowTube);
+    // Path inner glow (white)
+    const innerGlow = new THREE.Mesh(
+      new THREE.TubeGeometry(curve, 250, 1.5, 8, false),
+      new THREE.MeshBasicMaterial({ color: 0x80deea, transparent: true, opacity: 0.08 })
+    );
+    innerGlow.position.y = 0.3;
+    this.scene.add(innerGlow);
 
-    // Center base
-    const baseMat = new THREE.MeshStandardMaterial({ color: 0x4fc3f7, emissive: 0x0288d1, emissiveIntensity: 0.6, metalness: 0.4 });
-    this.baseMesh = new THREE.Mesh(new THREE.CylinderGeometry(8, 10, 6, 12), baseMat);
-    this.baseMesh.position.y = 3;
+    // Rune markers along path (every 25 points)
+    const runeColors = [0x29b6f6, 0x4fc3f7, 0x00e5ff, 0x18ffff];
+    for (let i = 0; i < pathPts.length; i += 25) {
+      const p = pathPts[i];
+      const runeMat = new THREE.MeshBasicMaterial({ color: runeColors[i % runeColors.length], transparent: true, opacity: 0.2 });
+      const rune = new THREE.Mesh(new THREE.RingGeometry(0.8, 1.5, 6), runeMat);
+      rune.position.set(p.x, 0.4, p.z);
+      rune.rotation.x = -Math.PI / 2;
+      rune.userData.isRune = true;
+      this.scene.add(rune);
+    }
+
+    // === CENTER BASE: Ice Fortress ===
+    // Base platform (multi-tiered)
+    const basePlatMat = new THREE.MeshStandardMaterial({ color: 0x263238, roughness: 0.5, metalness: 0.3 });
+    const basePlat = new THREE.Mesh(new THREE.CylinderGeometry(12, 14, 2, 12), basePlatMat);
+    basePlat.position.y = 1;
+    basePlat.receiveShadow = true;
+    this.scene.add(basePlat);
+    // Main fortress cylinder
+    const baseMat = new THREE.MeshStandardMaterial({ color: 0x4fc3f7, emissive: 0x0288d1, emissiveIntensity: 0.7, metalness: 0.5, roughness: 0.2 });
+    this.baseMesh = new THREE.Mesh(new THREE.CylinderGeometry(7, 9, 7, 8), baseMat);
+    this.baseMesh.position.y = 5.5;
     this.baseMesh.castShadow = true;
     this.scene.add(this.baseMesh);
-    // Base glow
-    const baseGlow = new THREE.Mesh(
-      new THREE.CircleGeometry(14, 24),
-      new THREE.MeshBasicMaterial({ color: 0x4fc3f7, transparent: true, opacity: 0.15 })
-    );
-    baseGlow.rotation.x = -Math.PI / 2;
-    baseGlow.position.y = 0.2;
-    this.scene.add(baseGlow);
+    // Fortress top ring
+    const topRing = new THREE.Mesh(new THREE.TorusGeometry(7.5, 0.5, 6, 16),
+      new THREE.MeshStandardMaterial({ color: 0x80deea, emissive: 0x4dd0e1, emissiveIntensity: 0.4 }));
+    topRing.position.y = 9;
+    topRing.rotation.x = Math.PI / 2;
+    this.scene.add(topRing);
+    // Crystal spire on top
+    const spireMat = new THREE.MeshStandardMaterial({ color: 0xb3e5fc, emissive: 0x4fc3f7, emissiveIntensity: 0.6, transparent: true, opacity: 0.8, roughness: 0.05 });
+    const spire = new THREE.Mesh(new THREE.OctahedronGeometry(3, 0), spireMat);
+    spire.position.y = 13;
+    spire.scale.y = 2;
+    this.scene.add(spire);
+    // Base beacon light
+    const beacon = new THREE.Mesh(new THREE.SphereGeometry(1.5, 8, 8),
+      new THREE.MeshBasicMaterial({ color: 0x4fc3f7, transparent: true, opacity: 0.4 }));
+    beacon.position.y = 15;
+    this.scene.add(beacon);
+    // Ground glow rings around base
+    for (let i = 0; i < 3; i++) {
+      const glow = new THREE.Mesh(
+        new THREE.RingGeometry(10 + i * 4, 11 + i * 4, 32),
+        new THREE.MeshBasicMaterial({ color: 0x4fc3f7, transparent: true, opacity: 0.12 - i * 0.03, side: THREE.DoubleSide })
+      );
+      glow.rotation.x = -Math.PI / 2;
+      glow.position.y = 0.15 + i * 0.05;
+      this.scene.add(glow);
+    }
 
-    // Tower slots
+    // === ICE CRYSTAL FORMATIONS around perimeter ===
+    const crystalMat = new THREE.MeshStandardMaterial({ color: 0xb2ebf2, emissive: 0x4dd0e1, emissiveIntensity: 0.3, transparent: true, opacity: 0.7, roughness: 0.05, metalness: 0.1 });
+    for (let i = 0; i < 16; i++) {
+      const a = (i / 16) * Math.PI * 2 + Math.random() * 0.2;
+      const r = MAP_RADIUS + 3 + Math.random() * 5;
+      const h = 4 + Math.random() * 8;
+      const crystal = new THREE.Mesh(new THREE.OctahedronGeometry(1 + Math.random(), 0), crystalMat.clone());
+      crystal.position.set(Math.cos(a) * r, h / 2, Math.sin(a) * r);
+      crystal.scale.y = h / 2;
+      crystal.rotation.y = Math.random() * Math.PI;
+      crystal.rotation.z = (Math.random() - 0.5) * 0.2;
+      crystal.castShadow = true;
+      this.scene.add(crystal);
+    }
+
+    // === TOWER SLOTS (enhanced ice platforms) ===
     this.towerSlots = [];
-    const slotGeo = new THREE.CylinderGeometry(3.8, 4, 0.6, 8);
-    const slotMat = new THREE.MeshStandardMaterial({ color: 0x263238, emissive: 0x37474f, emissiveIntensity: 0.1, roughness: 0.7 });
     for (const ring of SLOT_RINGS) {
       for (let i = 0; i < ring.count; i++) {
-        const angle = (i / ring.count) * Math.PI * 2 + (ring.r * 0.01); // slight offset
+        const angle = (i / ring.count) * Math.PI * 2 + (ring.r * 0.01);
         const x = ring.r * Math.cos(angle);
         const z = ring.r * Math.sin(angle);
-        const mesh = new THREE.Mesh(slotGeo.clone(), slotMat.clone());
-        mesh.position.set(x, 0.3, z);
-        mesh.receiveShadow = true;
-        this.scene.add(mesh);
-        this.towerSlots.push({ position: new THREE.Vector3(x, 0, z), mesh, occupied: false, tower: null });
+        // Platform base
+        const slotBase = new THREE.Mesh(
+          new THREE.CylinderGeometry(4, 4.5, 0.8, 8),
+          new THREE.MeshStandardMaterial({ color: 0x1e3a5f, emissive: 0x263238, emissiveIntensity: 0.1, roughness: 0.6, metalness: 0.2 })
+        );
+        slotBase.position.set(x, 0.4, z);
+        slotBase.receiveShadow = true;
+        this.scene.add(slotBase);
+        // Slot top indicator ring
+        const slotRing = new THREE.Mesh(
+          new THREE.RingGeometry(3.5, 4.2, 8),
+          new THREE.MeshBasicMaterial({ color: 0x37474f, transparent: true, opacity: 0.3, side: THREE.DoubleSide })
+        );
+        slotRing.position.set(x, 0.85, z);
+        slotRing.rotation.x = -Math.PI / 2;
+        this.scene.add(slotRing);
+        this.towerSlots.push({ position: new THREE.Vector3(x, 0, z), mesh: slotBase, occupied: false, tower: null });
       }
     }
 
-    // Snow particles (using Points)
-    const snowCount = 300;
+    // === AURORA BOREALIS particles (sky) ===
+    const auroraCount = 200;
+    const auroraGeo = new THREE.BufferGeometry();
+    const auroraPos = new Float32Array(auroraCount * 3);
+    const auroraColors = new Float32Array(auroraCount * 3);
+    for (let i = 0; i < auroraCount; i++) {
+      auroraPos[i * 3] = (Math.random() - 0.5) * 400;
+      auroraPos[i * 3 + 1] = 100 + Math.random() * 100;
+      auroraPos[i * 3 + 2] = (Math.random() - 0.5) * 400;
+      // Green/purple/cyan aurora colors
+      const pick = Math.random();
+      if (pick < 0.4) { auroraColors[i * 3] = 0; auroraColors[i * 3 + 1] = 0.9; auroraColors[i * 3 + 2] = 0.5; }
+      else if (pick < 0.7) { auroraColors[i * 3] = 0.5; auroraColors[i * 3 + 1] = 0.3; auroraColors[i * 3 + 2] = 1; }
+      else { auroraColors[i * 3] = 0; auroraColors[i * 3 + 1] = 0.8; auroraColors[i * 3 + 2] = 0.9; }
+    }
+    auroraGeo.setAttribute('position', new THREE.BufferAttribute(auroraPos, 3));
+    auroraGeo.setAttribute('color', new THREE.BufferAttribute(auroraColors, 3));
+    const auroraMat = new THREE.PointsMaterial({ size: 3, transparent: true, opacity: 0.4, vertexColors: true });
+    const aurora = new THREE.Points(auroraGeo, auroraMat);
+    aurora.userData.isAurora = true;
+    this.scene.add(aurora);
+
+    // === SNOW PARTICLES (enhanced) ===
+    const snowCount = 500;
     const snowGeo = new THREE.BufferGeometry();
     const snowPos = new Float32Array(snowCount * 3);
     for (let i = 0; i < snowCount; i++) {
-      snowPos[i * 3] = (Math.random() - 0.5) * 350;
-      snowPos[i * 3 + 1] = Math.random() * 150;
-      snowPos[i * 3 + 2] = (Math.random() - 0.5) * 350;
+      snowPos[i * 3] = (Math.random() - 0.5) * 400;
+      snowPos[i * 3 + 1] = Math.random() * 180;
+      snowPos[i * 3 + 2] = (Math.random() - 0.5) * 400;
     }
     snowGeo.setAttribute('position', new THREE.BufferAttribute(snowPos, 3));
-    const snowMat = new THREE.PointsMaterial({ color: 0xffffff, size: 1, transparent: true, opacity: 0.5 });
+    const snowMat = new THREE.PointsMaterial({ color: 0xffffff, size: 1.2, transparent: true, opacity: 0.6 });
     const snow = new THREE.Points(snowGeo, snowMat);
     snow.userData.isSnow = true;
     this.scene.add(snow);
+
+    // === SPAWN PORTAL (outer edge) ===
+    const portalAngle = 0;
+    const portalX = (MAP_RADIUS + 2) * Math.cos(portalAngle);
+    const portalZ = (MAP_RADIUS + 2) * Math.sin(portalAngle);
+    // Portal ring
+    const portalMat = new THREE.MeshStandardMaterial({ color: 0xff6e40, emissive: 0xff3d00, emissiveIntensity: 0.6, transparent: true, opacity: 0.8 });
+    const portal = new THREE.Mesh(new THREE.TorusGeometry(5, 0.8, 8, 16), portalMat);
+    portal.position.set(portalX, 5, portalZ);
+    portal.rotation.y = Math.PI / 2;
+    this.scene.add(portal);
+    // Portal glow
+    const portalGlow = new THREE.Mesh(new THREE.CircleGeometry(4, 16),
+      new THREE.MeshBasicMaterial({ color: 0xff6e40, transparent: true, opacity: 0.15, side: THREE.DoubleSide }));
+    portalGlow.position.set(portalX, 5, portalZ);
+    portalGlow.rotation.y = Math.PI / 2;
+    this.scene.add(portalGlow);
   }
 
   private clearScene(): void {
@@ -836,27 +1393,163 @@ export class Game {
     playSkill(skill.type);
 
     const pos = tower.group.position;
+    const scene = this.scene;
+
+    // Helper: animated effect cleanup
+    const animateEffect = (obj: THREE.Object3D, duration: number, onFrame: (t: number) => void) => {
+      const start = performance.now();
+      const tick = () => {
+        const t = (performance.now() - start) / duration;
+        if (t >= 1) {
+          scene.remove(obj);
+          obj.traverse(c => { if (c instanceof THREE.Mesh) { c.geometry.dispose(); (c.material as THREE.Material).dispose(); } });
+          return;
+        }
+        onFrame(t);
+        requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    };
+
     if (skill.type === 'volley') {
+      // ICE ARROW STORM: multiple icy projectile trails raining down
       for (const m of this.monsters) {
         if (m.hp > 0 && m.group.position.distanceTo(pos) < skill.radius) {
           m.takeDamage(skill.damage);
         }
       }
+      // Volley rain effect: many small falling shards
+      const volleyGroup = new THREE.Group();
+      for (let i = 0; i < 30; i++) {
+        const shard = new THREE.Mesh(
+          new THREE.ConeGeometry(0.3, 2, 4),
+          new THREE.MeshBasicMaterial({ color: 0x80deea, transparent: true, opacity: 0.8 })
+        );
+        const a = Math.random() * Math.PI * 2;
+        const r = Math.random() * skill.radius;
+        shard.position.set(pos.x + Math.cos(a) * r, 50 + Math.random() * 20, pos.z + Math.sin(a) * r);
+        shard.rotation.x = Math.PI;
+        volleyGroup.add(shard);
+      }
+      scene.add(volleyGroup);
+      animateEffect(volleyGroup, 800, (t) => {
+        volleyGroup.children.forEach((c, i) => {
+          c.position.y -= 1.5;
+          (c as THREE.Mesh).material = new THREE.MeshBasicMaterial({ color: 0x80deea, transparent: true, opacity: 0.8 * (1 - t) });
+        });
+      });
+      // Ground impact ring
+      const impactRing = new THREE.Mesh(
+        new THREE.RingGeometry(0, skill.radius, 32),
+        new THREE.MeshBasicMaterial({ color: 0x29b6f6, transparent: true, opacity: 0.25, side: THREE.DoubleSide })
+      );
+      impactRing.position.set(pos.x, 0.5, pos.z);
+      impactRing.rotation.x = -Math.PI / 2;
+      scene.add(impactRing);
+      animateEffect(impactRing, 600, (t) => {
+        (impactRing.material as THREE.MeshBasicMaterial).opacity = 0.25 * (1 - t);
+      });
+
     } else if (skill.type === 'earthquake') {
+      // SHOCKWAVE: expanding ground ring + rising rock pillars + camera shake
       for (const m of this.monsters) {
         if (m.hp > 0 && m.group.position.distanceTo(pos) < skill.radius) {
           m.takeDamage(skill.damage);
           m.slowFactor = 0; m.slowTimer = (skill.duration || 1.5) * 1000;
         }
       }
-      this.camera.position.y += 5;
-      setTimeout(() => { this.camera.position.y -= 5; }, 200);
+      // Expanding shockwave ring
+      const shockGroup = new THREE.Group();
+      for (let i = 0; i < 3; i++) {
+        const ring = new THREE.Mesh(
+          new THREE.TorusGeometry(5, 1.5 - i * 0.3, 6, 32),
+          new THREE.MeshBasicMaterial({ color: [0xd32f2f, 0xff5722, 0xff9800][i], transparent: true, opacity: 0.4 })
+        );
+        ring.position.set(pos.x, 1 + i * 0.3, pos.z);
+        ring.rotation.x = Math.PI / 2;
+        shockGroup.add(ring);
+      }
+      scene.add(shockGroup);
+      animateEffect(shockGroup, 1000, (t) => {
+        shockGroup.children.forEach((c, i) => {
+          const ring = c as THREE.Mesh;
+          const scale = 1 + t * (skill.radius / 5);
+          ring.scale.set(scale, scale, 1);
+          (ring.material as THREE.MeshBasicMaterial).opacity = 0.4 * (1 - t);
+        });
+      });
+      // Rising rock pillars
+      for (let i = 0; i < 8; i++) {
+        const a = (i / 8) * Math.PI * 2 + Math.random() * 0.3;
+        const r = 10 + Math.random() * (skill.radius - 15);
+        const pillar = new THREE.Mesh(
+          new THREE.BoxGeometry(2 + Math.random() * 2, 8 + Math.random() * 6, 2 + Math.random() * 2),
+          new THREE.MeshStandardMaterial({ color: 0x5d4037, roughness: 0.8 })
+        );
+        pillar.position.set(pos.x + Math.cos(a) * r, -5, pos.z + Math.sin(a) * r);
+        pillar.rotation.y = Math.random() * Math.PI;
+        scene.add(pillar);
+        animateEffect(pillar, 1200, (t) => {
+          if (t < 0.3) pillar.position.y = -5 + (t / 0.3) * 5;
+          else pillar.position.y = 5 * (1 - (t - 0.3) / 0.7) - 5;
+          (pillar.material as THREE.MeshStandardMaterial).opacity = 1 - t;
+        });
+      }
+      // Camera shake
+      const origY = this.camera.position.y;
+      let shakeCount = 0;
+      const shakeInterval = setInterval(() => {
+        this.camera.position.y = origY + (Math.random() - 0.5) * 6;
+        shakeCount++;
+        if (shakeCount > 10) { clearInterval(shakeInterval); this.camera.position.y = origY; }
+      }, 50);
+
     } else if (skill.type === 'meteor') {
+      // FIRE SWIRL: descending fire tornadoes + ground explosions
       const targets = this.monsters.filter(m => m.hp > 0).slice(0, 5);
       targets.forEach((m, i) => {
-        setTimeout(() => { m.takeDamage(skill.damage); playExplosion(); }, i * 300);
+        setTimeout(() => {
+          m.takeDamage(skill.damage);
+          playExplosion();
+          // Fire tornado at impact
+          const tornado = new THREE.Group();
+          for (let j = 0; j < 6; j++) {
+            const ring = new THREE.Mesh(
+              new THREE.TorusGeometry(2 + j * 0.5, 0.4, 6, 12),
+              new THREE.MeshBasicMaterial({ color: j < 3 ? 0xff3d00 : 0xffab00, transparent: true, opacity: 0.6 })
+            );
+            ring.position.y = j * 2;
+            ring.rotation.x = Math.PI / 2;
+            tornado.add(ring);
+          }
+          tornado.position.copy(m.group.position);
+          scene.add(tornado);
+          animateEffect(tornado, 700, (t) => {
+            tornado.rotation.y += 0.2;
+            tornado.scale.setScalar(1 + t);
+            tornado.children.forEach(c => {
+              (c as THREE.Mesh).material = new THREE.MeshBasicMaterial({
+                color: 0xff6e40, transparent: true, opacity: 0.6 * (1 - t)
+              });
+            });
+          });
+          // Ground scorch mark
+          const scorch = new THREE.Mesh(
+            new THREE.CircleGeometry(4, 16),
+            new THREE.MeshBasicMaterial({ color: 0xff3d00, transparent: true, opacity: 0.3, side: THREE.DoubleSide })
+          );
+          scorch.position.copy(m.group.position).setY(0.3);
+          scorch.rotation.x = -Math.PI / 2;
+          scene.add(scorch);
+          animateEffect(scorch, 1500, (t) => {
+            (scorch.material as THREE.MeshBasicMaterial).opacity = 0.3 * (1 - t);
+            scorch.scale.setScalar(1 + t * 0.5);
+          });
+        }, i * 300);
       });
+
     } else if (skill.type === 'blizzard') {
+      // MIST CLOUD: expanding ice cloud with swirling crystal particles
       for (const m of this.monsters) {
         if (m.hp > 0) {
           m.takeDamage(skill.damage);
@@ -864,32 +1557,111 @@ export class Game {
           m.slowTimer = (skill.duration || 3) * 1000;
         }
       }
+      // Ice cloud dome
+      const cloudGroup = new THREE.Group();
+      const cloudMat = new THREE.MeshBasicMaterial({ color: 0xb3e5fc, transparent: true, opacity: 0.2, side: THREE.DoubleSide });
+      const cloud = new THREE.Mesh(new THREE.SphereGeometry(20, 16, 12), cloudMat);
+      cloud.scale.y = 0.3;
+      cloud.position.y = 5;
+      cloudGroup.add(cloud);
+      // Ice crystal particles
+      for (let i = 0; i < 40; i++) {
+        const crystal = new THREE.Mesh(
+          new THREE.OctahedronGeometry(0.5 + Math.random() * 0.5, 0),
+          new THREE.MeshBasicMaterial({ color: 0x80deea, transparent: true, opacity: 0.6 })
+        );
+        const a = Math.random() * Math.PI * 2;
+        const r = Math.random() * 80;
+        crystal.position.set(Math.cos(a) * r, 2 + Math.random() * 8, Math.sin(a) * r);
+        crystal.userData.angle = a;
+        crystal.userData.radius = r;
+        cloudGroup.add(crystal);
+      }
+      // Ground frost ring
+      const frost = new THREE.Mesh(
+        new THREE.RingGeometry(0, 120, 48),
+        new THREE.MeshBasicMaterial({ color: 0xe0f7fa, transparent: true, opacity: 0.15, side: THREE.DoubleSide })
+      );
+      frost.rotation.x = -Math.PI / 2;
+      frost.position.y = 0.3;
+      cloudGroup.add(frost);
+      scene.add(cloudGroup);
+      animateEffect(cloudGroup, 2500, (t) => {
+        cloud.scale.setScalar(1 + t * 5);
+        cloud.scale.y = 0.3;
+        (cloud.material as THREE.MeshBasicMaterial).opacity = 0.2 * (1 - t);
+        cloudGroup.children.forEach((c, i) => {
+          if (i === 0 || i === cloudGroup.children.length - 1) return;
+          c.rotation.y += 0.05;
+          c.rotation.x += 0.03;
+          c.position.y += (Math.random() - 0.3) * 0.1;
+          ((c as THREE.Mesh).material as THREE.MeshBasicMaterial).opacity = 0.6 * (1 - t);
+        });
+        (frost.material as THREE.MeshBasicMaterial).opacity = 0.15 * (1 - t);
+      });
+
     } else if (skill.type === 'chain_lightning') {
+      // VOID NOVA: purple lightning ring expanding + sparks
       for (const m of this.monsters) {
         if (m.hp > 0) m.takeDamage(skill.damage);
       }
-    }
-
-    // Visual effect: flash
-    const flashGeo = new THREE.SphereGeometry(skill.radius === 999 ? 150 : skill.radius, 16, 16);
-    const flashMat = new THREE.MeshBasicMaterial({ color: tower.config.color, transparent: true, opacity: 0.3 });
-    const flash = new THREE.Mesh(flashGeo, flashMat);
-    flash.position.copy(skill.radius === 999 ? new THREE.Vector3(0, 5, 0) : pos.clone().setY(5));
-    this.scene.add(flash);
-    const startTime = performance.now();
-    const animFlash = () => {
-      const elapsed = performance.now() - startTime;
-      if (elapsed > 500) {
-        this.scene.remove(flash);
-        flash.geometry.dispose();
-        flashMat.dispose();
-        return;
+      // Expanding energy ring
+      const novaGroup = new THREE.Group();
+      for (let i = 0; i < 4; i++) {
+        const ring = new THREE.Mesh(
+          new THREE.TorusGeometry(8, 0.6 - i * 0.1, 6, 32),
+          new THREE.MeshBasicMaterial({ color: [0xfdd835, 0xffee58, 0xfff176, 0xfdd835][i], transparent: true, opacity: 0.5 })
+        );
+        ring.position.y = 3 + i * 1.5;
+        ring.rotation.x = Math.PI / 2;
+        novaGroup.add(ring);
       }
-      flashMat.opacity = 0.3 * (1 - elapsed / 500);
-      flash.scale.setScalar(1 + elapsed / 500);
-      requestAnimationFrame(animFlash);
-    };
-    requestAnimationFrame(animFlash);
+      scene.add(novaGroup);
+      animateEffect(novaGroup, 1200, (t) => {
+        novaGroup.children.forEach((c, i) => {
+          const scale = 1 + t * 15;
+          c.scale.set(scale, scale, 1);
+          (c as THREE.Mesh).material = new THREE.MeshBasicMaterial({
+            color: 0xfdd835, transparent: true, opacity: 0.5 * (1 - t)
+          });
+        });
+      });
+      // Lightning bolt lines to random monsters
+      const hitTargets = this.monsters.filter(m => m.hp > 0).slice(0, 10);
+      hitTargets.forEach(m => {
+        const boltGeo = new THREE.BufferGeometry();
+        const points: number[] = [];
+        const start = pos.clone().setY(10);
+        const end = m.group.position.clone().setY(3);
+        const mid = start.clone().lerp(end, 0.5);
+        mid.x += (Math.random() - 0.5) * 15;
+        mid.y += 10 + Math.random() * 10;
+        mid.z += (Math.random() - 0.5) * 15;
+        for (let t = 0; t <= 1; t += 0.1) {
+          const p = new THREE.Vector3();
+          p.lerpVectors(start, mid, t * 2 < 1 ? t * 2 : 1);
+          if (t > 0.5) p.lerpVectors(mid, end, (t - 0.5) * 2);
+          p.x += (Math.random() - 0.5) * 3;
+          p.z += (Math.random() - 0.5) * 3;
+          points.push(p.x, p.y, p.z);
+        }
+        boltGeo.setAttribute('position', new THREE.Float32BufferAttribute(points, 3));
+        const bolt = new THREE.Line(boltGeo, new THREE.LineBasicMaterial({ color: 0xfdd835, linewidth: 2 }));
+        scene.add(bolt);
+        const bStart = performance.now();
+        const boltAnim = () => {
+          const bt = (performance.now() - bStart) / 400;
+          if (bt >= 1) { scene.remove(bolt); boltGeo.dispose(); return; }
+          (bolt.material as THREE.LineBasicMaterial).opacity = 1 - bt;
+          requestAnimationFrame(boltAnim);
+        };
+        requestAnimationFrame(boltAnim);
+      });
+      // Camera flash
+      const origBg = (scene.background as THREE.Color).clone();
+      scene.background = new THREE.Color(0x333322);
+      setTimeout(() => { scene.background = origBg; }, 100);
+    }
 
     this.ui.showAnnouncement(`⚡ ${skill.nameKo}!`, tower.config.color);
   }
@@ -1021,23 +1793,41 @@ export class Game {
       if (this.currentWave >= TOTAL_WAVES) { this.endGame(true); return; }
     }
 
-    // Snow animation
+    // Particle & environment animations
+    const now = performance.now();
     this.scene.traverse(obj => {
+      // Snow falling
       if (obj instanceof THREE.Points && obj.userData.isSnow) {
         const pos = obj.geometry.attributes.position;
         for (let i = 0; i < pos.count; i++) {
-          let y = pos.getY(i) - dt * 0.01;
-          if (y < 0) y = 150;
+          let y = pos.getY(i) - dt * 0.012;
+          if (y < 0) y = 180;
           pos.setY(i, y);
-          pos.setX(i, pos.getX(i) + Math.sin(y * 0.1) * 0.02);
+          pos.setX(i, pos.getX(i) + Math.sin(y * 0.08 + i) * 0.025);
         }
         pos.needsUpdate = true;
       }
+      // Aurora shimmer
+      if (obj instanceof THREE.Points && obj.userData.isAurora) {
+        const pos = obj.geometry.attributes.position;
+        for (let i = 0; i < pos.count; i++) {
+          pos.setY(i, pos.getY(i) + Math.sin(now * 0.0005 + i * 0.3) * 0.05);
+          pos.setX(i, pos.getX(i) + Math.cos(now * 0.0003 + i * 0.5) * 0.02);
+        }
+        pos.needsUpdate = true;
+        obj.rotation.y += dt * 0.00005;
+      }
+      // Rune glow pulse
+      if (obj instanceof THREE.Mesh && obj.userData.isRune) {
+        const mat = obj.material as THREE.MeshBasicMaterial;
+        mat.opacity = 0.15 + Math.sin(now * 0.003 + obj.position.x * 0.1) * 0.1;
+        obj.rotation.z += dt * 0.001;
+      }
     });
 
-    // Base pulse
+    // Base pulse + beacon
     if (this.baseMesh) {
-      const pulse = 1 + Math.sin(performance.now() * 0.002) * 0.03;
+      const pulse = 1 + Math.sin(now * 0.002) * 0.04;
       this.baseMesh.scale.set(pulse, 1, pulse);
     }
 
@@ -1074,6 +1864,19 @@ export class Game {
 
     if (this.state === 'menu' && this.menuGroup) {
       this.menuGroup.rotation.y += delta * 0.0003;
+      // Animate menu snow
+      this.menuGroup.traverse(obj => {
+        if (obj instanceof THREE.Points && obj.userData.isSnow) {
+          const pos = obj.geometry.attributes.position;
+          for (let i = 0; i < pos.count; i++) {
+            let y = pos.getY(i) - delta * 0.01;
+            if (y < 0) y = 180;
+            pos.setY(i, y);
+            pos.setX(i, pos.getX(i) + Math.sin(y * 0.08 + i) * 0.02);
+          }
+          pos.needsUpdate = true;
+        }
+      });
     } else if (this.state === 'playing') {
       this.updateGame(delta);
     }
