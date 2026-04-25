@@ -1,7 +1,7 @@
 {
-  "name": "penguin-defense-3d",
+  "name": "frostpaw-defense",
   "version": "2.0.0",
-  "description": "펭귄 대모험 3D - 원형 타워 디펜스",
+  "description": "펭귄 프론티어 - 3D 원형 타워 디펜스",
   "type": "module",
   "scripts": {
     "dev": "vite",

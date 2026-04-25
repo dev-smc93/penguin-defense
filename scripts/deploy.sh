@@ -23,4 +23,4 @@ git push origin gh-pages
 echo "Switching back to master..."
 git checkout master
 
-echo "Deployed! https://dev-smc93.github.io/penguin-defense/"
+echo "Deployed! https://dev-smc93.github.io/frostpaw-defense/"

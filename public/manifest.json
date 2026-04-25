@@ -1,6 +1,6 @@
 {
-  "name": "펭귄 대모험: 꽁꽁 방어전",
-  "short_name": "펭귄 대모험",
+  "name": "펭귄 프론티어 (Frostpaw Defense)",
+  "short_name": "펭귄 프론티어",
   "description": "펭귄 히어로를 소환하고 합성하여 좀비를 막아라! 얼음 테마 머지 디펜스 게임",
   "start_url": "./",
   "display": "standalone",

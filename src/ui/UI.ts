@@ -304,7 +304,7 @@ export class UI {
     this.menuEl = document.createElement('div');
     this.menuEl.className = 'ui-menu';
     this.menuEl.innerHTML = `
-      <h1>펭귄 대모험 3D<br><span style="font-size:16px;opacity:0.7">원형 타워 디펜스</span></h1>
+      <h1>펭귄 프론티어<br><span style="font-size:16px;opacity:0.7">Frostpaw Defense · 원형 타워 디펜스</span></h1>
       <p>몬스터가 나선형으로 몰려온다!<br>타워를 소환하고 합성하여 방어하라!</p>
       <button class="play-btn">게임 시작</button>
     `;
