@@ -1,4 +1,4 @@
-const CACHE_NAME = 'penguin-defense-v3';
+const CACHE_NAME = 'frostpaw-defense-v1';
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
